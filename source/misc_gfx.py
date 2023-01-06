@@ -14,8 +14,6 @@ class Color:
 	GRID_MAJOR = ( 40,  40,  40)	#
 	GRID_MINOR = ( 25,  25,  25)	#
 	HITBOX     = (200, 200, 100)	# player hitbox
-	PREVIEW = '#475569'
-	GRAPH   = '#60a5fa'
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+1, gridsize):

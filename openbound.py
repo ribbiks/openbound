@@ -63,8 +63,8 @@ def main(raw_args=None):
 	# other gfx
 	my_cursor     = Cursor(cursor_img_fns)
 	WINDOW_OFFSET = Vector2(0, 0)
-	SCROLL_X      = Vector2(0, SCROLL_SPEED)
-	SCROLL_Y      = Vector2(SCROLL_SPEED, 0)
+	SCROLL_X      = Vector2(SCROLL_SPEED, 0)
+	SCROLL_Y      = Vector2(0, SCROLL_SPEED)
 	TIME_SPENT    = [0.]
 
 	# inputs that can be held down across frames
@@ -154,7 +154,7 @@ def main(raw_args=None):
 		draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
 
 		# Terrain ------------------------------------------------ #
-		world_map.draw(screen, WINDOW_OFFSET, draw_pathing=True)
+		world_map.draw(screen, WINDOW_OFFSET, draw_pathing=False)
 
 		# Foreground objects ------------------------------------- #
 		my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=False)

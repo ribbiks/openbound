@@ -36,6 +36,13 @@ class State:
 	DELAY_Q = 5		# we have an order in queue, but are waiting to accept it (to emulate shift-click delay)
 
 #
+# order types
+#
+class OrderType:
+	NEW   = 0
+	QUEUE = 1
+
+#
 #
 #
 class Mauzling:
@@ -184,7 +191,7 @@ class Mauzling:
 		for i, v in enumerate(self.inc_orders):
 			self.inc_orders[i][1] -= 1
 			if self.inc_orders[i][1] <= 0:
-				if v[2] == 'queue' and self.order_queue:
+				if v[2] == OrderType.QUEUE and self.order_queue:
 					# for shift-clicks delay will be QUEUE_DELAY, for subpaths of a larger path it will be 0
 					order_dat = [v[0], QUEUE_DELAY, True, None]
 					self.order_queue.append(order_dat)
@@ -192,9 +199,7 @@ class Mauzling:
 					# for new moves accept_delay = 0
 					order_dat = [v[0], 0, True, None]
 					self.order_queue = deque([order_dat])
-
 		self.inc_orders = [n for n in self.inc_orders if n[1] > 0]
-
 		#
 		# act out our current order if we have one. order = (goal_pos, accept_delay, request_new_path, clicked_pos)
 		#
@@ -264,15 +269,15 @@ class Mauzling:
 			if len(self.order_queue) >= MAX_ORDERS_IN_QUEUE:
 				print('rejected order:', order, '(queue full)')
 				return None
-			move_type = 'queue'
+			move_type = OrderType.QUEUE
 		else:
-			move_type = 'new'
+			move_type = OrderType.NEW
 		# don't accept redundant orders within move_delay window
 		if len(self.inc_orders) and order == self.inc_orders[-1][0]:
 			print('rejected order:', order, '(redundant)')
 			return None
 		# don't new accept orders if we're already on our way to that exact spot
-		if move_type == 'new' and self.order_queue:
+		if move_type == OrderType.NEW and self.order_queue:
 			if (order - self.order_queue[-1][0]).length() <= CLICK_DEADZONE:
 				print('rejected order:', order, '(already moving there)')
 				return None
