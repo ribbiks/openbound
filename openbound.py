@@ -25,7 +25,7 @@ def main(raw_args=None):
 	parser.add_argument('-i',  type=str, required=True,  metavar='input.map', help="* map to load")
 	parser.add_argument('-sw', type=int, required=False, metavar='640',       help="screen width",      default=640)
 	parser.add_argument('-sh', type=int, required=False, metavar='480',       help="screen height",     default=480)
-	parser.add_argument('--fullscreen', required=False, action='store_true', help="run in fullscreen", default=False)
+	parser.add_argument('--fullscreen',  required=False, action='store_true', help="run in fullscreen", default=False)
 	args = parser.parse_args()
 	#
 	INPUT_MAP      = args.i
@@ -59,6 +59,7 @@ def main(raw_args=None):
 	MAP_WIDTH  = world_map.map_width
 	MAP_HEIGHT = world_map.map_height
 	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fn)
+	#my_player.position = Vector2(37,213)
 
 	# other gfx
 	my_cursor     = Cursor(cursor_img_fns)
@@ -139,8 +140,9 @@ def main(raw_args=None):
 		mouse_pos_screen = Vector2(mx,my)
 		mouse_pos_map    = mouse_pos_screen - WINDOW_OFFSET
 		if right_clicking:
-			my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
-			my_player.issue_new_order(mouse_pos_map, shift_pressed)
+			draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
+			if draw_cursor:
+				my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
 
 		#
 		# update players

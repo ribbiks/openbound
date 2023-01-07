@@ -60,7 +60,7 @@ class WorldMap:
 						filt_count[1] += 1
 						if edge_has_good_incoming_angles(edge, pf_nodedict[rid]):
 							filt_count[2] += 1
-							if edge_is_traversable(edge_scaled, self.map_dat, GRID_SIZE, self.p_loswidth, stepsize=0.9):
+							if edge_is_traversable(edge_scaled, self.map_dat, self.p_loswidth, stepsize=0.9):
 								filt_count[3] += 1
 								if i not in pf_edges[-1]:
 									pf_edges[-1][i] = []

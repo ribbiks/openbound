@@ -6,7 +6,7 @@ import pygame
 from collections import deque
 from pygame.math import Vector2
 
-from source.globals import GRID_SIZE
+from source.globals  import GRID_SIZE
 
 UNIT_RADIUS_EPS = 0.01
 
@@ -169,11 +169,11 @@ def edge_has_good_incoming_angles(edge, node_dict):
 #
 #
 #
-def edge_is_traversable(edge, map_dat, gridsize, unit_radius, stepsize=2.):
+def edge_is_traversable(edge, map_dat, unit_radius, stepsize=0.9):
 	corner_offsets = [Vector2(-unit_radius, -unit_radius),
-		              Vector2(-unit_radius,  unit_radius),
-		              Vector2( unit_radius, -unit_radius),
-		              Vector2( unit_radius,  unit_radius)]
+	                  Vector2(-unit_radius,  unit_radius),
+	                  Vector2( unit_radius, -unit_radius),
+	                  Vector2( unit_radius,  unit_radius)]
 	dv = edge[1] - edge[0]
 	nsteps = int(dv.length()/stepsize)-1
 	if nsteps <= 0:
@@ -183,9 +183,24 @@ def edge_is_traversable(edge, map_dat, gridsize, unit_radius, stepsize=2.):
 		v = Vector2(edge[0].x, edge[0].y) + co	# need to make a new vec2 otherwise we modify the original variable (doh)
 		for i in range(nsteps):
 			v += dv
-			(mx, my) = (int(v.x / gridsize), int(v.y / gridsize))
+			(mx, my) = (int(v.x / GRID_SIZE), int(v.y / GRID_SIZE))
 			if map_dat[mx,my] == 1:
 				return False
+	return True
+
+#
+#
+#
+def valid_player_pos(v, map_dat, unit_radius):
+	corner_offsets = [Vector2(-unit_radius, -unit_radius),
+	                  Vector2(-unit_radius,  unit_radius),
+	                  Vector2( unit_radius, -unit_radius),
+	                  Vector2( unit_radius,  unit_radius)]
+	for co in corner_offsets:
+		v_adj = v + co
+		(mx, my) = (int(v_adj.x / GRID_SIZE), int(v_adj.y / GRID_SIZE))
+		if map_dat[mx,my] == 1:
+			return False
 	return True
 
 #
@@ -218,8 +233,7 @@ def pathfind(world_object, starting_pos, ending_pos):
 			x = x0 + int(i*(dx/steps))
 			y = y0 + int(i*(dy/steps))
 			if pf_regionmap[x,y] == unit_region:
-				ending_pos       = Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2)
-				ending_pos_quant = ending_pos
+				ending_pos_quant = Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2)
 				found_valid_tile = True
 				break
 		# if that failed, lets do a bfs to find the nearest valid tile
@@ -240,23 +254,37 @@ def pathfind(world_object, starting_pos, ending_pos):
 			if len(found_tiles):
 				found_tiles = sorted([((Vector2(n[0],n[1]) - Vector2(cx,cy)).length(), n) for n in found_tiles])
 				(x,y) = found_tiles[0][1]
-				ending_pos       = Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2)
-				ending_pos_quant = ending_pos
+				ending_pos_quant = Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2)
 				found_valid_tile = True
 		# somehow that also failed, so we're not going to move at all. sorry!
 		if not found_valid_tile:
 			return []
 	#
+	# if ending position is not valid (e.g. in a wall) choose closest in-bounds tile and nudge towards desired coords
+	#
+	if not valid_player_pos(ending_pos, map_dat, my_unitbuff):
+		#print('ending_pos:', ending_pos)
+		#print('quant:     ', ending_pos_quant)
+		nudged_pos = ending_pos_quant
+		if nudged_pos.x > ending_pos.x:
+			while nudged_pos.x > ending_pos.x and valid_player_pos(nudged_pos - Vector2(1,0), map_dat, my_unitbuff):
+				nudged_pos -= Vector2(1,0)
+		elif nudged_pos.x < ending_pos.x:
+			while nudged_pos.x < ending_pos.x and valid_player_pos(nudged_pos + Vector2(1,0), map_dat, my_unitbuff):
+				nudged_pos += Vector2(1,0)
+		if nudged_pos.y > ending_pos.y:
+			while nudged_pos.y > ending_pos.y and valid_player_pos(nudged_pos - Vector2(0,1), map_dat, my_unitbuff):
+				nudged_pos -= Vector2(0,1)
+		elif nudged_pos.y < ending_pos.y:
+			while nudged_pos.y < ending_pos.y and valid_player_pos(nudged_pos + Vector2(0,1), map_dat, my_unitbuff):
+				nudged_pos += Vector2(0,1)
+		ending_pos = nudged_pos
+	#
 	# do we have a straight line between current position and where we want to go?
 	#
-	have_straight_line = edge_is_traversable([starting_pos, ending_pos], map_dat, GRID_SIZE, my_unitbuff)
+	have_straight_line = edge_is_traversable([starting_pos, ending_pos], map_dat, my_unitbuff)
 	if have_straight_line:
 		return [ending_pos, starting_pos]
-	# ok, how about a straight line but the destination is partially in a wall?
-	else:
-		have_straight_line = edge_is_traversable([starting_pos, ending_pos_quant], map_dat, GRID_SIZE, my_unitbuff)
-		if have_straight_line:
-			return [ending_pos_quant, starting_pos]
 	#
 	# looks like we have to actually do pathfinding...
 	#
@@ -269,7 +297,7 @@ def pathfind(world_object, starting_pos, ending_pos):
 	#
 	my_edges[starting_node] = []
 	for i,v in enumerate(pf_nodes[unit_region]):
-		if edge_is_traversable([starting_pos, v], map_dat, GRID_SIZE, my_unitbuff):
+		if edge_is_traversable([starting_pos, v], map_dat, my_unitbuff):
 			my_edges[i].append(starting_node)
 			my_edges[starting_node].append(i)
 	#
@@ -277,22 +305,14 @@ def pathfind(world_object, starting_pos, ending_pos):
 	#
 	my_edges[ending_node] = []
 	for i,v in enumerate(pf_nodes[unit_region]):
-		if edge_is_traversable([v, ending_pos], map_dat, GRID_SIZE, my_unitbuff):
+		if edge_is_traversable([v, ending_pos], map_dat, my_unitbuff):
 			my_edges[i].append(ending_node)
 			my_edges[ending_node].append(i)
 	#
-	# destination is partially in a wall, change ending_pos to nearest tile
-	#
-	if not my_edges[ending_node]:
-		ending_pos_old = ending_pos
-		ending_pos     = ending_pos_quant
-		for i,v in enumerate(pf_nodes[unit_region]):
-			if edge_is_traversable([v, ending_pos], map_dat, GRID_SIZE, my_unitbuff):
-				my_edges[i].append(ending_node)
-				my_edges[ending_node].append(i)
-	#
 	if not my_edges[starting_node] or not my_edges[ending_node]:
 		print('Error: something went wrong and we were unable to connect starting/ending nodes to graph')
+		print(' -- starting_pos:', starting_pos)
+		print(' -- ending_pos:  ', ending_pos)
 		exit(1)
 	#
 	# astar

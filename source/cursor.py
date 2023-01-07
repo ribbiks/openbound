@@ -5,7 +5,7 @@ from pygame.math import Vector2
 class Cursor:
 	def __init__(self, img_filenames):
 		self.position = Vector2(0,0)
-		self.img      = [pygame.image.load(n) for n in img_filenames]
+		self.img      = [pygame.image.load(n).convert_alpha() for n in img_filenames]
 		self.img_i    = 0
 		self.frame    = -1
 		self.scale    = [(27,27), (33,33), (39,39), (33,33)]

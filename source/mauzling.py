@@ -12,8 +12,8 @@ from source.globals     import GRID_SIZE, PLAYER_RADIUS
 #
 # basic stats
 #
-MOVE_CYCLE    = [2,8,9,5,6,7,2]
-TURN_SPEED    = 40
+MOVE_CYCLE = [2,8,9,5,6,7,2]
+TURN_SPEED = 40
 
 #
 # pathing / click delay stuff
@@ -51,14 +51,14 @@ class Mauzling:
 		self.angle       = angle_clamp(angle)
 		self.radius      = PLAYER_RADIUS
 		self.bbox        = (self.position.x - self.radius,
-			                self.position.x + self.radius,
-			                self.position.y - self.radius,
-			                self.position.y + self.radius)
+		                    self.position.x + self.radius,
+		                    self.position.y - self.radius,
+		                    self.position.y + self.radius)
 		self.state       = State.IDLE
 		self.iscript_ind = 0
 		self.inc_orders  = []			# orders we're waiting to accept (click delay)
 		self.order_queue = deque([])	# orders we have accepted
-		self.img         = pygame.image.load(image_filename)
+		self.img         = pygame.image.load(image_filename).convert_alpha()
 	
 	#
 	#
@@ -82,9 +82,9 @@ class Mauzling:
 		self.position = pos
 		self.angle = angle
 		self.bbox = (self.position.x - self.radius,
-			         self.position.x + self.radius,
-			         self.position.y - self.radius,
-			         self.position.y + self.radius)
+		             self.position.x + self.radius,
+		             self.position.y - self.radius,
+		             self.position.y + self.radius)
 	
 	#
 	#
@@ -158,7 +158,7 @@ class Mauzling:
 		return deque(upcoming_angs)
 	
 	#
-	#
+	# d_angle between [0,360]
 	#
 	def get_turn_delay(self, d_angle):
 		if d_angle > 180:
@@ -262,35 +262,35 @@ class Mauzling:
 						self.increment_iscript()
 
 	#
-	#
+	# returns True if cursor click animation should be drawn
 	#
 	def issue_new_order(self, order, shift_pressed):
 		if shift_pressed:
 			if len(self.order_queue) >= MAX_ORDERS_IN_QUEUE:
 				print('rejected order:', order, '(queue full)')
-				return None
+				return True
 			move_type = OrderType.QUEUE
 		else:
 			move_type = OrderType.NEW
 		# don't accept redundant orders within move_delay window
 		if len(self.inc_orders) and order == self.inc_orders[-1][0]:
 			print('rejected order:', order, '(redundant)')
-			return None
+			return True
 		# don't new accept orders if we're already on our way to that exact spot
 		if move_type == OrderType.NEW and self.order_queue:
 			if (order - self.order_queue[-1][0]).length() <= CLICK_DEADZONE:
 				print('rejected order:', order, '(already moving there)')
-				return None
+				return True
 		# only accept move orders outside our bounding box (+ buffer)
 		inside_box = (order.x >= self.bbox[0] - HITBOX_DEADZONE_BUFF and
-			          order.x <= self.bbox[1] + HITBOX_DEADZONE_BUFF and
-			          order.y >= self.bbox[2] - HITBOX_DEADZONE_BUFF and
-			          order.y <= self.bbox[3] + HITBOX_DEADZONE_BUFF)
+		              order.x <= self.bbox[1] + HITBOX_DEADZONE_BUFF and
+		              order.y >= self.bbox[2] - HITBOX_DEADZONE_BUFF and
+		              order.y <= self.bbox[3] + HITBOX_DEADZONE_BUFF)
 		if inside_box:
 			print('rejected order:', order, '(clicked inside player)')
-			return None
+			return False
 		#
 		self.inc_orders.append([order, MOVE_DELAY, move_type])
 		if self.state == State.IDLE:
 			self.state = State.DELAY
-
+		return True
