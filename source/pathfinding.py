@@ -281,8 +281,9 @@ def pathfind(world_object, starting_pos, ending_pos):
 		ending_pos = nudged_pos
 	#
 	# do we have a straight line between current position and where we want to go?
+	# -- using an aggressively small stepsize here so that we don't fail LoS checks if start and end are very close
 	#
-	have_straight_line = edge_is_traversable([starting_pos, ending_pos], map_dat, my_unitbuff)
+	have_straight_line = edge_is_traversable([starting_pos, ending_pos], map_dat, my_unitbuff, stepsize=0.1)
 	if have_straight_line:
 		return [ending_pos, starting_pos]
 	#

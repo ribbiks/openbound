@@ -10,12 +10,15 @@ import time
 from pygame.locals import QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, K_LSHIFT, K_RSHIFT, MOUSEBUTTONDOWN, MOUSEBUTTONUP
 from pygame.math   import Vector2
 
-from source.cursor   import Cursor
-from source.geometry import value_clamp
-from source.globals  import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
-from source.mauzling import Mauzling
-from source.misc_gfx import Color, draw_grid
-from source.worldmap import WorldMap
+from source.animationmanager import AnimationManager
+from source.audiomanager     import AudioManager
+from source.cursor           import Cursor
+from source.geometry         import value_clamp
+from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
+from source.mauzling         import Mauzling
+from source.misc_gfx         import Color, draw_grid
+from source.util             import get_file_paths
+from source.worldmap         import WorldMap
 
 GAME_VERS = 'OpenBound v0.1'
 FRAMERATE = 23.8095
@@ -34,13 +37,19 @@ def main(raw_args=None):
 	#
 	py_dir  = pathlib.Path(__file__).resolve().parent
 	GFX_DIR = os.path.join(py_dir, 'assets', 'gfx')
+	SFX_DIR = os.path.join(py_dir, 'assets', 'audio')
 	#
-	cursor_img_fns = [os.path.join(GFX_DIR, 'cursor.png'), os.path.join(GFX_DIR, 'cursor_shift.png')]
-	player_img_fn  = os.path.join(GFX_DIR, 'sq16.png')
+	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
+	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
+	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
+	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png','scourge1.png','scourge2.png','scourge3.png','scourge4.png','scourge5.png'])
+	#
+	exp_sound_fns = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
 
 	#
 	# initialize pygame
 	#
+	pygame.mixer.pre_init(44100, -16, 2, 2048)	# possibly not necessary?
 	pygame.init()
 	pygame.display.set_caption(GAME_VERS)
 	disp_flags = 0
@@ -58,8 +67,12 @@ def main(raw_args=None):
 		exit(1)
 	MAP_WIDTH  = world_map.map_width
 	MAP_HEIGHT = world_map.map_height
-	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fn)
-	#my_player.position = Vector2(37,213)
+	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
+
+	# load animation gfx
+	my_animations = AnimationManager()
+	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
+	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
 
 	# other gfx
 	my_cursor     = Cursor(cursor_img_fns)
@@ -67,6 +80,11 @@ def main(raw_args=None):
 	SCROLL_X      = Vector2(SCROLL_SPEED, 0)
 	SCROLL_Y      = Vector2(0, SCROLL_SPEED)
 	TIME_SPENT    = [0.]
+
+	# load sounds
+	my_audio = AudioManager()
+	my_audio.add_sound(exp_sound_fns[0], 'overlord')
+	my_audio.add_sound(exp_sound_fns[1], 'scourge')
 
 	# inputs that can be held down across frames
 	left_clicking = False
@@ -149,6 +167,13 @@ def main(raw_args=None):
 		#
 		my_player.tick(world_map)
 
+		#
+		# update obstacles
+		#
+		if current_frame % 20 == 0:
+			my_animations.start_new_animation('scourge', Vector2(128+16,128+16))
+			my_audio.play_sound('scourge', volume=0.5)
+
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
 		grid_offset = Vector2(WINDOW_OFFSET.x % GRID_SIZE, WINDOW_OFFSET.y % GRID_SIZE)
@@ -160,6 +185,9 @@ def main(raw_args=None):
 
 		# Foreground objects ------------------------------------- #
 		my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=False)
+		my_animations.draw(screen, WINDOW_OFFSET)
+
+		# Draw UI elements --------------------------------------- #
 
 		# Draw cursor -------------------------------------------- #
 		my_cursor.draw(screen)

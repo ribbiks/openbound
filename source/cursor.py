@@ -27,3 +27,4 @@ class Cursor:
 			self.frame += 1
 		if self.frame >= len(self.scale):
 			self.frame = -1
+			
