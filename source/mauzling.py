@@ -23,6 +23,7 @@ QUEUE_DELAY          = 1
 MAX_ORDERS_IN_QUEUE  = 32
 CLICK_DEADZONE       = 4
 HITBOX_DEADZONE_BUFF = 4
+CLICK_SELECTION_BUFF = 8
 
 #
 # player states
@@ -55,6 +56,7 @@ class Mauzling:
 		                    self.position.y - self.radius,
 		                    self.position.y + self.radius)
 		self.state       = State.IDLE
+		self.is_selected = False
 		self.iscript_ind = 0
 		self.inc_orders  = []			# orders we're waiting to accept (click delay)
 		self.order_queue = deque([])	# orders we have accepted
@@ -64,6 +66,12 @@ class Mauzling:
 	#
 	#
 	def draw(self, screen, offset, draw_bounding_box=False):
+		if self.is_selected:
+			ellipse_bounds = [self.bbox[0] + offset.x - PLAYER_RADIUS/2,
+			                  self.bbox[2] + offset.y + PLAYER_RADIUS,
+			                  3*PLAYER_RADIUS,
+			                  2*PLAYER_RADIUS]
+			pygame.draw.ellipse(screen, Color.SEL_ELLIPSE, ellipse_bounds, width=1)
 		rotated_image = pygame.transform.rotate(self.img, self.angle)
 		new_rect = rotated_image.get_rect(center=self.img.get_rect(center=self.position+offset).center)
 		screen.blit(rotated_image, new_rect)
@@ -103,6 +111,34 @@ class Mauzling:
 	#
 	def get_current_speed(self):
 		return MOVE_CYCLE[self.iscript_ind]
+
+	#
+	#
+	#
+	def check_selection_click(self, point):
+		inside_box = (point.x >= self.bbox[0] - CLICK_SELECTION_BUFF and
+		              point.x <= self.bbox[1] + CLICK_SELECTION_BUFF and
+		              point.y >= self.bbox[2] - CLICK_SELECTION_BUFF and
+		              point.y <= self.bbox[3] + CLICK_SELECTION_BUFF)
+		if inside_box:
+			self.is_selected = True
+		else:
+			self.is_selected = False
+
+	#
+	#
+	#
+	def check_selection_box(self, box):
+		bx = sorted([box[0].x, box[1].x])
+		by = sorted([box[0].y, box[1].y])
+		inside_box = (self.position.x >= bx[0] and
+		              self.position.x <= bx[1] and
+		              self.position.y >= by[0] and
+		              self.position.y <= by[1])
+		if inside_box:
+			self.is_selected = True
+		else:
+			self.is_selected = False
 	
 	#
 	#
@@ -265,6 +301,9 @@ class Mauzling:
 	# returns True if cursor click animation should be drawn
 	#
 	def issue_new_order(self, order, shift_pressed):
+		if not self.is_selected:
+			print('rejected order:', order, '(not selected)')
+			return False
 		if shift_pressed:
 			if len(self.order_queue) >= MAX_ORDERS_IN_QUEUE:
 				print('rejected order:', order, '(queue full)')

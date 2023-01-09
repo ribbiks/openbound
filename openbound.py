@@ -16,7 +16,8 @@ from source.cursor           import Cursor
 from source.geometry         import value_clamp
 from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
 from source.mauzling         import Mauzling
-from source.misc_gfx         import Color, draw_grid
+from source.misc_gfx         import Color, draw_grid, draw_selection_box
+from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
 from source.worldmap         import WorldMap
 
@@ -41,6 +42,7 @@ def main(raw_args=None):
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
+	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
 	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
 	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png','scourge1.png','scourge2.png','scourge3.png','scourge4.png','scourge5.png'])
 	#
@@ -57,6 +59,7 @@ def main(raw_args=None):
 		disp_flags |= pygame.FULLSCREEN
 	screen     = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
 	main_clock = pygame.time.Clock()
+	#pygame.event.set_grab(True)
 
 	#
 	# load world and place player 1
@@ -68,26 +71,38 @@ def main(raw_args=None):
 	MAP_WIDTH  = world_map.map_width
 	MAP_HEIGHT = world_map.map_height
 	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
+	num_lives  = 150
 
 	# load animation gfx
 	my_animations = AnimationManager()
 	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
 
+	# font objects
+	stats_font = pygame.font.SysFont("Verdana", 20)
+	lives_font = pygame.font.SysFont("Verdana", 24)
+
 	# other gfx
-	my_cursor     = Cursor(cursor_img_fns)
-	WINDOW_OFFSET = Vector2(0, 0)
-	SCROLL_X      = Vector2(SCROLL_SPEED, 0)
-	SCROLL_Y      = Vector2(0, SCROLL_SPEED)
-	TIME_SPENT    = [0.]
+	my_cursor = Cursor(cursor_img_fns)
+	widget_playerselected = UIWidget()
+	widget_playerselected.add_element('box', (Vector2(8, RESOLUTION.y - 72), Vector2(160, RESOLUTION.y - 8), Color.WIDGET_SEL))
+	widget_playerselected.add_element('image', (Vector2(10, RESOLUTION.y - 66), ui_gfx_img_fns[0]))
+	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80, RESOLUTION.y - 70), lives_font, Color.LIFECOUNT))
+	widget_playerselected.add_element('text', ('', 'lifecount', Vector2(90, RESOLUTION.y - 42), lives_font, Color.LIFECOUNT))
 
 	# load sounds
 	my_audio = AudioManager()
 	my_audio.add_sound(exp_sound_fns[0], 'overlord')
 	my_audio.add_sound(exp_sound_fns[1], 'scourge')
 
+	# misc vars
+	WINDOW_OFFSET = Vector2(0, 0)
+	SCROLL_X      = Vector2(SCROLL_SPEED, 0)
+	SCROLL_Y      = Vector2(0, SCROLL_SPEED)
+	TIME_SPENT    = [0.]
+	selection_box = [None, None]
+
 	# inputs that can be held down across frames
-	left_clicking = False
 	shift_pressed = False
 	arrow_left    = False
 	arrow_up      = False
@@ -98,7 +113,10 @@ def main(raw_args=None):
 	current_frame = 0
 	while True:
 		# Get keyboard / mouse inputs ---------------------------- #
-		right_clicking = False
+		left_clicking   = False
+		left_released   = False
+		middle_clicking = False
+		right_clicking  = False
 		for event in pygame.event.get():
 			if event.type == QUIT:
 				pygame.quit()
@@ -135,7 +153,7 @@ def main(raw_args=None):
 					right_clicking = True
 			elif event.type == MOUSEBUTTONUP:
 				if event.button == 1:
-					left_clicking = False
+					left_released = True
 
 		#
 		# processing player inputs: moving screen
@@ -152,11 +170,27 @@ def main(raw_args=None):
 		WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - MAP_HEIGHT, 0), 0)
 
 		#
-		# processing player inputs: movement orders
+		# processing player inputs: selection + movement orders
 		#
 		mx, my           = pygame.mouse.get_pos()
 		mouse_pos_screen = Vector2(mx,my)
 		mouse_pos_map    = mouse_pos_screen - WINDOW_OFFSET
+		if left_clicking:
+			selection_box = [Vector2(mx,my), None]
+		if left_released:
+			if selection_box[0] != None:
+				if selection_box[1] == None:
+					selection_box[1] = selection_box[0]
+				# check for selection (single point)
+				if (selection_box[1] - selection_box[0]).length() < 4:
+					my_player.check_selection_click(selection_box[1] - WINDOW_OFFSET)
+				# check for selection (box)
+				else:
+					my_player.check_selection_box([selection_box[0] - WINDOW_OFFSET, selection_box[1] - WINDOW_OFFSET])
+				selection_box = [None, None]
+		if selection_box[0] != None:
+			selection_box[1] = Vector2(mx,my)
+		#
 		if right_clicking:
 			draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
 			if draw_cursor:
@@ -170,9 +204,9 @@ def main(raw_args=None):
 		#
 		# update obstacles
 		#
-		if current_frame % 20 == 0:
-			my_animations.start_new_animation('scourge', Vector2(128+16,128+16))
-			my_audio.play_sound('scourge', volume=0.5)
+		####if current_frame % 20 == 0:
+		####	my_animations.start_new_animation('scourge', Vector2(128+16,128+16))
+		####	my_audio.play_sound('scourge', volume=0.5)
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
@@ -188,19 +222,22 @@ def main(raw_args=None):
 		my_animations.draw(screen, WINDOW_OFFSET)
 
 		# Draw UI elements --------------------------------------- #
+		if selection_box[0] != None:
+			draw_selection_box(screen, selection_box, Color.SELECTION)
+		if my_player.is_selected:
+			widget_playerselected.text_data['lifecount'] = str(num_lives)
+			widget_playerselected.draw(screen)
 
 		# Draw cursor -------------------------------------------- #
 		my_cursor.draw(screen)
 
 		# Print FPS ---------------------------------------------- #
-		fps_font = pygame.font.SysFont("Verdana", 20)
-		fps_text = fps_font.render('{0:0.2f}'.format(main_clock.get_fps()), True, Color.INFO_TEXT)
+		fps_text = stats_font.render('{0:0.2f}'.format(main_clock.get_fps()), True, Color.INFO_TEXT)
 		screen.blit(fps_text, (RESOLUTION[0]-64, 0))
 
 		# Print mouse coordinates -------------------------------- #
-		fps_font = pygame.font.SysFont("Verdana", 20)
-		fps_text = fps_font.render('{0}, {1}'.format(int(mouse_pos_map.x), int(mouse_pos_map.y)), True, Color.INFO_TEXT)
-		screen.blit(fps_text, (RESOLUTION[0]-96, RESOLUTION[1]-32))
+		coords_text = stats_font.render('{0}, {1}'.format(int(mouse_pos_map.x), int(mouse_pos_map.y)), True, Color.INFO_TEXT)
+		screen.blit(coords_text, (RESOLUTION[0]-100, RESOLUTION[1]-32))
 
 		# Update ------------------------------------------------- #
 		pygame.display.update()
@@ -212,4 +249,7 @@ def main(raw_args=None):
 		####	print([int(1000.*n/current_frame) for n in TIME_SPENT], 'ms/frame')
 
 if __name__ == '__main__':
-	main()
+	try:
+		main()
+	finally:
+		pygame.quit()
