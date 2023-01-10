@@ -17,6 +17,7 @@ from source.geometry         import value_clamp
 from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_selection_box
+from source.obstacle         import Obstacle
 from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
 from source.worldmap         import WorldMap
@@ -43,10 +44,11 @@ def main(raw_args=None):
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
-	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
+	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
 	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png','scourge1.png','scourge2.png','scourge3.png','scourge4.png','scourge5.png'])
 	#
-	exp_sound_fns = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
+	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
+	player_sound_fns = get_file_paths(SFX_DIR, ['zzedth00.wav'])
 
 	#
 	# initialize pygame
@@ -71,7 +73,7 @@ def main(raw_args=None):
 	MAP_WIDTH  = world_map.map_width
 	MAP_HEIGHT = world_map.map_height
 	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
-	num_lives  = 150
+	my_player.num_lives = 1
 
 	# load animation gfx
 	my_animations = AnimationManager()
@@ -79,6 +81,7 @@ def main(raw_args=None):
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
 
 	# font objects
+	loc_font   = pygame.font.SysFont("Verdana", 12)
 	stats_font = pygame.font.SysFont("Verdana", 20)
 	lives_font = pygame.font.SysFont("Verdana", 24)
 
@@ -94,6 +97,16 @@ def main(raw_args=None):
 	my_audio = AudioManager()
 	my_audio.add_sound(exp_sound_fns[0], 'overlord')
 	my_audio.add_sound(exp_sound_fns[1], 'scourge')
+	my_audio.add_sound(player_sound_fns[0], 'player_death')
+
+	# test obstacle
+	my_obstacle = Obstacle((Vector2(96,64),Vector2(128,128)), (Vector2(352,64),Vector2(384,128)), Vector2(96,96), loc_font=loc_font)
+	my_obstacle.add_location('1-1', Vector2(128,64),  Vector2(192,128), 'overlord', 'overlord')
+	my_obstacle.add_location('1-2', Vector2(192,64),  Vector2(256,128), 'overlord', 'overlord')
+	my_obstacle.add_location('1-3', Vector2(256,64),  Vector2(320,128), 'overlord', 'overlord')
+	my_obstacle.add_location('1-4', Vector2(192,128), Vector2(256,192), 'overlord', 'overlord')
+	my_obstacle.add_event('explode_locs', ['1-1', '1-2', '1-3'], 16)
+	my_obstacle.add_event('explode_locs', ['1-2', '1-4'],        16)
 
 	# misc vars
 	WINDOW_OFFSET = Vector2(0, 0)
@@ -204,9 +217,20 @@ def main(raw_args=None):
 		#
 		# update obstacles
 		#
-		####if current_frame % 20 == 0:
-		####	my_animations.start_new_animation('scourge', Vector2(128+16,128+16))
-		####	my_audio.play_sound('scourge', volume=0.5)
+		my_obstacle.check_for_ob_start(my_player.position)
+		my_obstacle.check_for_ob_end(my_player.position)
+		(ob_gfx, ob_snd, ob_kill, ob_tele) = my_obstacle.tick()
+		for n in ob_gfx:
+			my_animations.start_new_animation(n[0], n[1])
+		for n in ob_snd:
+			my_audio.play_sound(n[0], volume=0.5)
+		if ob_kill:
+			player_died = my_player.check_kill_boxes(ob_kill)
+			if player_died:
+				my_player.revive_at_pos(my_obstacle.revive_coords)
+				my_audio.play_sound('player_death', volume=0.5)
+		if current_frame == 300:
+			my_player.add_lives(10, my_obstacle.revive_coords)
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
@@ -215,6 +239,7 @@ def main(raw_args=None):
 		draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
 
 		# Terrain ------------------------------------------------ #
+		my_obstacle.draw(screen, WINDOW_OFFSET)
 		world_map.draw(screen, WINDOW_OFFSET, draw_pathing=False)
 
 		# Foreground objects ------------------------------------- #
@@ -225,7 +250,7 @@ def main(raw_args=None):
 		if selection_box[0] != None:
 			draw_selection_box(screen, selection_box, Color.SELECTION)
 		if my_player.is_selected:
-			widget_playerselected.text_data['lifecount'] = str(num_lives)
+			widget_playerselected.text_data['lifecount'] = str(my_player.num_lives)
 			widget_playerselected.draw(screen)
 
 		# Draw cursor -------------------------------------------- #

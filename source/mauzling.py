@@ -4,7 +4,7 @@ import pygame
 from collections import deque
 from pygame.math import Vector2
 
-from source.geometry    import angle_clamp, SMALL_NUMBER
+from source.geometry    import angle_clamp, boxes_overlap, SMALL_NUMBER
 from source.misc_gfx    import Color
 from source.pathfinding import pathfind
 from source.globals     import GRID_SIZE, PLAYER_RADIUS
@@ -35,6 +35,7 @@ class State:
 	MOVING  = 3		# moving
 	ARRIVED = 4		# destination reached, next frame we will process our next order if we have one
 	DELAY_Q = 5		# we have an order in queue, but are waiting to accept it (to emulate shift-click delay)
+	DEAD    = 6		# out of lives, do not revive
 
 #
 # order types
@@ -61,27 +62,29 @@ class Mauzling:
 		self.inc_orders  = []			# orders we're waiting to accept (click delay)
 		self.order_queue = deque([])	# orders we have accepted
 		self.img         = pygame.image.load(image_filename).convert_alpha()
+		self.num_lives   = 0
 	
 	#
 	#
 	#
 	def draw(self, screen, offset, draw_bounding_box=False):
-		if self.is_selected:
-			ellipse_bounds = [self.bbox[0] + offset.x - PLAYER_RADIUS/2,
-			                  self.bbox[2] + offset.y + PLAYER_RADIUS,
-			                  3*PLAYER_RADIUS,
-			                  2*PLAYER_RADIUS]
-			pygame.draw.ellipse(screen, Color.SEL_ELLIPSE, ellipse_bounds, width=1)
-		rotated_image = pygame.transform.rotate(self.img, self.angle)
-		new_rect = rotated_image.get_rect(center=self.img.get_rect(center=self.position+offset).center)
-		screen.blit(rotated_image, new_rect)
-		if draw_bounding_box:
-			edges_to_draw = [(Vector2(self.bbox[0], self.bbox[2]), Vector2(self.bbox[1], self.bbox[2])),
-			                 (Vector2(self.bbox[1], self.bbox[2]), Vector2(self.bbox[1], self.bbox[3])),
-			                 (Vector2(self.bbox[1], self.bbox[3]), Vector2(self.bbox[0], self.bbox[3])),
-			                 (Vector2(self.bbox[0], self.bbox[3]), Vector2(self.bbox[0], self.bbox[2]))]
-			for edge in edges_to_draw:
-				pygame.draw.line(screen, Color.HITBOX, edge[0]+offset, edge[1]+offset, width=1)
+		if self.state != State.DEAD:
+			if self.is_selected:
+				ellipse_bounds = [self.bbox[0] + offset.x - PLAYER_RADIUS/2,
+				                  self.bbox[2] + offset.y + PLAYER_RADIUS,
+				                  3*PLAYER_RADIUS,
+				                  2*PLAYER_RADIUS]
+				pygame.draw.ellipse(screen, Color.SEL_ELLIPSE, ellipse_bounds, width=1)
+			rotated_image = pygame.transform.rotate(self.img, self.angle)
+			new_rect = rotated_image.get_rect(center=self.img.get_rect(center=self.position+offset).center)
+			screen.blit(rotated_image, new_rect)
+			if draw_bounding_box:
+				edges_to_draw = [(Vector2(self.bbox[0], self.bbox[2]), Vector2(self.bbox[1], self.bbox[2])),
+				                 (Vector2(self.bbox[1], self.bbox[2]), Vector2(self.bbox[1], self.bbox[3])),
+				                 (Vector2(self.bbox[1], self.bbox[3]), Vector2(self.bbox[0], self.bbox[3])),
+				                 (Vector2(self.bbox[0], self.bbox[3]), Vector2(self.bbox[0], self.bbox[2]))]
+				for edge in edges_to_draw:
+					pygame.draw.line(screen, Color.HITBOX, edge[0]+offset, edge[1]+offset, width=1)
 	
 	#
 	#
@@ -116,6 +119,8 @@ class Mauzling:
 	#
 	#
 	def check_selection_click(self, point):
+		if self.state == State.DEAD:
+			return False
 		inside_box = (point.x >= self.bbox[0] - CLICK_SELECTION_BUFF and
 		              point.x <= self.bbox[1] + CLICK_SELECTION_BUFF and
 		              point.y >= self.bbox[2] - CLICK_SELECTION_BUFF and
@@ -129,6 +134,8 @@ class Mauzling:
 	#
 	#
 	def check_selection_box(self, box):
+		if self.state == State.DEAD:
+			return False
 		bx = sorted([box[0].x, box[1].x])
 		by = sorted([box[0].y, box[1].y])
 		inside_box = (self.position.x >= bx[0] and
@@ -139,6 +146,46 @@ class Mauzling:
 			self.is_selected = True
 		else:
 			self.is_selected = False
+
+	#
+	# returns True if we died
+	#
+	def check_kill_boxes(self, boxes):
+		mybox = (Vector2(self.bbox[0], self.bbox[2]), Vector2(self.bbox[1], self.bbox[3]))
+		for b in boxes:
+			if boxes_overlap(b, mybox):
+				return True
+		return False
+
+	#
+	#
+	#
+	def revive_at_pos(self, pos):
+		self.is_selected = False
+		self.iscript_ind = 0
+		self.inc_orders  = []
+		self.order_queue = deque([])
+		self.update_position(pos, 0)
+		if self.num_lives >= 1:
+			self.state = State.IDLE
+			self.num_lives -= 1
+		else:
+			self.state = State.DEAD
+
+	#
+	#
+	#
+	def add_lives(self, new_lives, current_revive_pos):
+		if new_lives > 0:
+			self.num_lives += new_lives
+			if self.state == State.DEAD:
+				self.is_selected = False
+				self.iscript_ind = 0
+				self.inc_orders  = []
+				self.order_queue = deque([])
+				self.update_position(current_revive_pos, 0)
+				self.state = State.IDLE
+				self.num_lives -= 1
 	
 	#
 	#

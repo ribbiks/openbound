@@ -2,7 +2,8 @@ import pygame
 
 from pygame.math import Vector2
 
-PF_NODE_RADIUS = 4	# width of pathfinding nodes (for drawing)
+PF_NODE_RADIUS   = 4	# width of pathfinding nodes (for drawing)
+OB_REVIVE_RADIUS = 3	# width of revive spot (for drawing)
 
 class Color:
 	BACKGROUND  = (  0,   0,   0)	#
@@ -18,6 +19,11 @@ class Color:
 	WIDGET_SEL  = (200, 200, 200)	# background of player stat widget
 	LIFECOUNT   = (160,   0, 160)	#
 	SEL_ELLIPSE = ( 50, 200,  50)	# ellipse that gets drawn underneath selected units
+	OB_STARTBOX = (100, 250, 100)	#
+	OB_ENDBOX   = (250, 100, 100)	#
+	OB_REVIVE   = (220, 220, 220)	#
+	LOC_BG      = (100, 100, 100)	#
+	LOC_TEXT    = (  0,   0,   0)	#
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+1, gridsize):
