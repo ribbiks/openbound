@@ -25,6 +25,14 @@ from source.worldmap         import WorldMap
 GAME_VERS = 'OpenBound v0.1'
 FRAMERATE = 23.8095
 
+class GameState:
+	START_MENU   = 0
+	BOUNDING     = 1
+	ED_TERRAIN   = 2
+	ED_UNITS     = 3
+	ED_LOCATIONS = 4
+	ED_OBSTACLE  = 5
+
 def main(raw_args=None):
 	parser = argparse.ArgumentParser(description=GAME_VERS, formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
 	parser.add_argument('-i',  type=str, required=True,  metavar='input.map', help="* map to load")
@@ -124,8 +132,11 @@ def main(raw_args=None):
 
 	# Main game loop --------------------------------------------- #
 	current_frame = 0
+	current_gamestate = GameState.BOUNDING
 	while True:
+		#
 		# Get keyboard / mouse inputs ---------------------------- #
+		#
 		left_clicking   = False
 		left_released   = False
 		middle_clicking = False
@@ -167,70 +178,19 @@ def main(raw_args=None):
 			elif event.type == MOUSEBUTTONUP:
 				if event.button == 1:
 					left_released = True
-
-		#
-		# processing player inputs: moving screen
-		#
-		if arrow_left and not arrow_right:
-			WINDOW_OFFSET += SCROLL_X
-		if arrow_right and not arrow_left:
-			WINDOW_OFFSET -= SCROLL_X
-		if arrow_up and not arrow_down:
-			WINDOW_OFFSET += SCROLL_Y
-		if arrow_down and not arrow_up:
-			WINDOW_OFFSET -= SCROLL_Y
-		WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  MAP_WIDTH, 0), 0)
-		WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - MAP_HEIGHT, 0), 0)
-
-		#
-		# processing player inputs: selection + movement orders
 		#
 		mx, my           = pygame.mouse.get_pos()
 		mouse_pos_screen = Vector2(mx,my)
 		mouse_pos_map    = mouse_pos_screen - WINDOW_OFFSET
+		#
 		if left_clicking:
 			selection_box = [Vector2(mx,my), None]
 		if left_released:
 			if selection_box[0] != None:
 				if selection_box[1] == None:
 					selection_box[1] = selection_box[0]
-				# check for selection (single point)
-				if (selection_box[1] - selection_box[0]).length() < 4:
-					my_player.check_selection_click(selection_box[1] - WINDOW_OFFSET)
-				# check for selection (box)
-				else:
-					my_player.check_selection_box([selection_box[0] - WINDOW_OFFSET, selection_box[1] - WINDOW_OFFSET])
-				selection_box = [None, None]
 		if selection_box[0] != None:
 			selection_box[1] = Vector2(mx,my)
-		#
-		if right_clicking:
-			draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
-			if draw_cursor:
-				my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
-
-		#
-		# update players
-		#
-		my_player.tick(world_map)
-
-		#
-		# update obstacles
-		#
-		my_obstacle.check_for_ob_start(my_player.position)
-		my_obstacle.check_for_ob_end(my_player.position)
-		(ob_gfx, ob_snd, ob_kill, ob_tele) = my_obstacle.tick()
-		for n in ob_gfx:
-			my_animations.start_new_animation(n[0], n[1])
-		for n in ob_snd:
-			my_audio.play_sound(n[0], volume=0.5)
-		if ob_kill:
-			player_died = my_player.check_kill_boxes(ob_kill)
-			if player_died:
-				my_player.revive_at_pos(my_obstacle.revive_coords)
-				my_audio.play_sound('player_death', volume=0.5)
-		if current_frame == 300:
-			my_player.add_lives(10, my_obstacle.revive_coords)
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
@@ -238,23 +198,84 @@ def main(raw_args=None):
 		draw_grid(screen, RESOLUTION,   GRID_SIZE, grid_offset, Color.GRID_MINOR)
 		draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
 
-		# Terrain ------------------------------------------------ #
-		my_obstacle.draw(screen, WINDOW_OFFSET)
-		world_map.draw(screen, WINDOW_OFFSET, draw_pathing=False)
+		#
+		# STARTING MENU
+		#
+		if current_gamestate == GameState.START_MENU:
+			pass
 
-		# Foreground objects ------------------------------------- #
-		my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=False)
-		my_animations.draw(screen, WINDOW_OFFSET)
+		#
+		# WE ARE BOUNDING.
+		#
+		if current_gamestate == GameState.BOUNDING:
+			#
+			# processing player inputs: moving screen
+			#
+			if arrow_left and not arrow_right:
+				WINDOW_OFFSET += SCROLL_X
+			if arrow_right and not arrow_left:
+				WINDOW_OFFSET -= SCROLL_X
+			if arrow_up and not arrow_down:
+				WINDOW_OFFSET += SCROLL_Y
+			if arrow_down and not arrow_up:
+				WINDOW_OFFSET -= SCROLL_Y
+			WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  MAP_WIDTH, 0), 0)
+			WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - MAP_HEIGHT, 0), 0)
 
-		# Draw UI elements --------------------------------------- #
-		if selection_box[0] != None:
-			draw_selection_box(screen, selection_box, Color.SELECTION)
-		if my_player.is_selected:
-			widget_playerselected.text_data['lifecount'] = str(my_player.num_lives)
-			widget_playerselected.draw(screen)
+			#
+			# processing player inputs: selection + movement orders
+			#
+			if left_released and selection_box[0] != None:
+				if (selection_box[1] - selection_box[0]).length() < 4:
+					my_player.check_selection_click(selection_box[1] - WINDOW_OFFSET)
+				else:
+					my_player.check_selection_box([selection_box[0] - WINDOW_OFFSET, selection_box[1] - WINDOW_OFFSET])
+			#
+			if right_clicking:
+				draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
+				if draw_cursor:
+					my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
 
-		# Draw cursor -------------------------------------------- #
-		my_cursor.draw(screen)
+			#
+			# update players
+			#
+			my_player.tick(world_map)
+
+			#
+			# update obstacles
+			#
+			my_obstacle.check_for_ob_start(my_player.position)
+			my_obstacle.check_for_ob_end(my_player.position)
+			(ob_gfx, ob_snd, ob_kill, ob_tele) = my_obstacle.tick()
+			for n in ob_gfx:
+				my_animations.start_new_animation(n[0], n[1])
+			for n in ob_snd:
+				my_audio.play_sound(n[0], volume=0.5)
+			if ob_kill:
+				player_died = my_player.check_kill_boxes(ob_kill)
+				if player_died:
+					my_player.revive_at_pos(my_obstacle.revive_coords)
+					my_audio.play_sound('player_death', volume=0.5)
+			####if current_frame == 300:
+			####	my_player.add_lives(10, my_obstacle.revive_coords)
+
+			# Terrain ------------------------------------------------ #
+			my_obstacle.draw(screen, WINDOW_OFFSET)
+			world_map.draw(screen, WINDOW_OFFSET, draw_pathing=False)
+
+			# Foreground objects ------------------------------------- #
+			my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=False)
+			my_animations.draw(screen, WINDOW_OFFSET)
+
+			# Draw UI elements --------------------------------------- #
+			if selection_box[0] != None:
+				draw_selection_box(screen, selection_box, Color.SELECTION)
+			if my_player.is_selected:
+				widget_playerselected.text_data['lifecount'] = str(my_player.num_lives)
+				widget_playerselected.draw(screen)
+
+			# Draw cursor -------------------------------------------- #
+			my_cursor.draw(screen)
 
 		# Print FPS ---------------------------------------------- #
 		fps_text = stats_font.render('{0:0.2f}'.format(main_clock.get_fps()), True, Color.INFO_TEXT)
@@ -268,6 +289,9 @@ def main(raw_args=None):
 		pygame.display.update()
 		main_clock.tick_busy_loop(FRAMERATE)
 		current_frame += 1
+
+		if left_released:
+			selection_box = [None, None]
 
 		##### print runtime stats every 100 frames
 		####if current_frame % 100 == 0:

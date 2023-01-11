@@ -26,9 +26,9 @@ HITBOX_DEADZONE_BUFF = 4
 CLICK_SELECTION_BUFF = 8
 
 #
-# player states
+# player / order states
 #
-class State:
+class PlayerState:
 	IDLE    = 0		# idle
 	DELAY   = 1		# received orders, but we're waiting before we accept them (to emulate click delay)
 	TURNING = 2		# turning
@@ -37,9 +37,6 @@ class State:
 	DELAY_Q = 5		# we have an order in queue, but are waiting to accept it (to emulate shift-click delay)
 	DEAD    = 6		# out of lives, do not revive
 
-#
-# order types
-#
 class OrderType:
 	NEW   = 0
 	QUEUE = 1
@@ -56,7 +53,7 @@ class Mauzling:
 		                    self.position.x + self.radius,
 		                    self.position.y - self.radius,
 		                    self.position.y + self.radius)
-		self.state       = State.IDLE
+		self.state       = PlayerState.IDLE
 		self.is_selected = False
 		self.iscript_ind = 0
 		self.inc_orders  = []			# orders we're waiting to accept (click delay)
@@ -68,7 +65,7 @@ class Mauzling:
 	#
 	#
 	def draw(self, screen, offset, draw_bounding_box=False):
-		if self.state != State.DEAD:
+		if self.state != PlayerState.DEAD:
 			if self.is_selected:
 				ellipse_bounds = [self.bbox[0] + offset.x - PLAYER_RADIUS/2,
 				                  self.bbox[2] + offset.y + PLAYER_RADIUS,
@@ -119,7 +116,7 @@ class Mauzling:
 	#
 	#
 	def check_selection_click(self, point):
-		if self.state == State.DEAD:
+		if self.state == PlayerState.DEAD:
 			return False
 		inside_box = (point.x >= self.bbox[0] - CLICK_SELECTION_BUFF and
 		              point.x <= self.bbox[1] + CLICK_SELECTION_BUFF and
@@ -134,7 +131,7 @@ class Mauzling:
 	#
 	#
 	def check_selection_box(self, box):
-		if self.state == State.DEAD:
+		if self.state == PlayerState.DEAD:
 			return False
 		bx = sorted([box[0].x, box[1].x])
 		by = sorted([box[0].y, box[1].y])
@@ -167,10 +164,10 @@ class Mauzling:
 		self.order_queue = deque([])
 		self.update_position(pos, 0)
 		if self.num_lives >= 1:
-			self.state = State.IDLE
+			self.state = PlayerState.IDLE
 			self.num_lives -= 1
 		else:
-			self.state = State.DEAD
+			self.state = PlayerState.DEAD
 
 	#
 	#
@@ -178,13 +175,13 @@ class Mauzling:
 	def add_lives(self, new_lives, current_revive_pos):
 		if new_lives > 0:
 			self.num_lives += new_lives
-			if self.state == State.DEAD:
+			if self.state == PlayerState.DEAD:
 				self.is_selected = False
 				self.iscript_ind = 0
 				self.inc_orders  = []
 				self.order_queue = deque([])
 				self.update_position(current_revive_pos, 0)
-				self.state = State.IDLE
+				self.state = PlayerState.IDLE
 				self.num_lives -= 1
 	
 	#
@@ -247,7 +244,7 @@ class Mauzling:
 		if d_angle > 180:
 			d_angle -= 360
 		d_angle = abs(d_angle)
-		if d_angle <= 40 and self.state in [State.MOVING, State.TURNING]:
+		if d_angle <= 40 and self.state in [PlayerState.MOVING, PlayerState.TURNING]:
 			return 0
 		elif d_angle <= 80:
 			return 1
@@ -263,11 +260,11 @@ class Mauzling:
 	#
 	def tick(self, world_object):
 		#
-		if self.state == State.IDLE or self.state == State.DELAY_Q:
+		if self.state == PlayerState.IDLE or self.state == PlayerState.DELAY_Q:
 			self.reset_iscript()
 		#
-		if self.state == State.ARRIVED:
-			self.state = State.IDLE
+		if self.state == PlayerState.ARRIVED:
+			self.state = PlayerState.IDLE
 		#
 		# decrement delay on incoming orders, if any are ready, add them to queue
 		#
@@ -290,7 +287,7 @@ class Mauzling:
 			#
 			self.order_queue[0][1] -= 1
 			if self.order_queue[0][1] > -1:
-				self.state = State.DELAY_Q
+				self.state = PlayerState.DELAY_Q
 			else:
 				# order accepted, pathfind subpaths if this is a new command
 				pathfind_success = True
@@ -314,29 +311,29 @@ class Mauzling:
 				# abandon this order if no path was returned
 				if not pathfind_success:
 					self.order_queue.popleft()
-					self.state = State.ARRIVED
+					self.state = PlayerState.ARRIVED
 				else:
 					# everything went ok, lets compute necessary turns before we can begin moving
 					if self.order_queue[0][1] == -1:
 						self.turn_angles = self.get_turn_angles(self.position, self.angle, self.order_queue[0][0], clickpos=self.order_queue[0][3])
 					# do the actual turning
 					if self.turn_angles:
-						self.state = State.TURNING
+						self.state = PlayerState.TURNING
 						self.angle = self.turn_angles.popleft()
 						if not self.turn_angles:
-							self.state = State.MOVING
+							self.state = PlayerState.MOVING
 						else:
 							self.update_position(self.position, self.angle)
 							self.increment_iscript()
 					# move if we're now ready
-					if self.state == State.MOVING:
+					if self.state == PlayerState.MOVING:
 						d_vec       = self.order_queue[0][0] - self.position
 						dist_togo   = d_vec.length()
 						move_amount = self.get_current_speed()
 						if dist_togo <= move_amount:
 							new_position = self.order_queue[0][0]
 							self.order_queue.popleft()
-							self.state = State.ARRIVED
+							self.state = PlayerState.ARRIVED
 						else:
 							move_vec = d_vec
 							move_vec.scale_to_length(move_amount)
@@ -377,6 +374,6 @@ class Mauzling:
 			return False
 		#
 		self.inc_orders.append([order, MOVE_DELAY, move_type])
-		if self.state == State.IDLE:
-			self.state = State.DELAY
+		if self.state == PlayerState.IDLE:
+			self.state = PlayerState.DELAY
 		return True

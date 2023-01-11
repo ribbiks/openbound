@@ -224,20 +224,20 @@ def pathfind(world_object, starting_pos, ending_pos):
 	# if we clicked out of bounds move to the tile closest to the click position (that is in bounds)
 	# --- draw a line from click pos towards current unit pos, looking for a valid destination
 	#
+	found_nearest_inbound_tile = False
 	if click_region != unit_region:
 		steps    = abs(cx-ux) + abs(cy-uy)
 		(x0, y0) = (cx, cy)
 		(dx, dy) = (ux-cx, uy-cy)
-		found_valid_tile = False
 		for i in range(steps):
 			x = x0 + int(i*(dx/steps))
 			y = y0 + int(i*(dy/steps))
 			if pf_regionmap[x,y] == unit_region:
 				ending_pos_quant = Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2)
-				found_valid_tile = True
+				found_nearest_inbound_tile = True
 				break
 		# if that failed, lets do a bfs to find the nearest valid tile
-		if not found_valid_tile:
+		if not found_nearest_inbound_tile:
 			visited = {(cx,cy): True}
 			found_tiles = []
 			queue = deque([(cx, cy)])
@@ -255,14 +255,14 @@ def pathfind(world_object, starting_pos, ending_pos):
 				found_tiles = sorted([((Vector2(n[0],n[1]) - Vector2(cx,cy)).length(), n) for n in found_tiles])
 				(x,y) = found_tiles[0][1]
 				ending_pos_quant = Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2)
-				found_valid_tile = True
+				found_nearest_inbound_tile = True
 		# somehow that also failed, so we're not going to move at all. sorry!
-		if not found_valid_tile:
+		if not found_nearest_inbound_tile:
 			return []
 	#
 	# if ending position is not valid (e.g. in a wall) choose closest in-bounds tile and nudge towards desired coords
 	#
-	if not valid_player_pos(ending_pos, map_dat, my_unitbuff):
+	if found_nearest_inbound_tile or not valid_player_pos(ending_pos, map_dat, my_unitbuff):
 		#print('ending_pos:', ending_pos)
 		#print('quant:     ', ending_pos_quant)
 		nudged_pos = ending_pos_quant
