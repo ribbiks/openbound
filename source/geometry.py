@@ -28,6 +28,18 @@ def boxes_overlap(b1, b2):
 	return (ranges_overlap_excl(b1[0].x, b1[1].x, b2[0].x, b2[1].x) and
 	        ranges_overlap_excl(b1[0].y, b1[1].y, b2[0].y, b2[1].y))
 
+def point_in_box(p, topleft, bottomright):
+	return (p.x >= topleft.x and
+	        p.x <= bottomright.x and
+	        p.y >= topleft.y and
+	        p.y <= bottomright.y)
+
+def point_in_box_excl(p, topleft, bottomright):
+	return (p.x > topleft.x and
+	        p.x < bottomright.x and
+	        p.y > topleft.y and
+	        p.y < bottomright.y)
+
 ##### do line segments AB and CD intersect?
 ####def segments_intersect(A,B,C,D):
 ####	return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)

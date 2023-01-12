@@ -7,12 +7,14 @@ import pygame
 import sys
 import time
 
+from collections   import deque
 from pygame.locals import QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, K_LSHIFT, K_RSHIFT, MOUSEBUTTONDOWN, MOUSEBUTTONUP
 from pygame.math   import Vector2
 
 from source.animationmanager import AnimationManager
 from source.audiomanager     import AudioManager
 from source.cursor           import Cursor
+from source.font             import Font
 from source.geometry         import value_clamp
 from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
 from source.mauzling         import Mauzling
@@ -27,11 +29,13 @@ FRAMERATE = 23.8095
 
 class GameState:
 	START_MENU   = 0
-	BOUNDING     = 1
-	ED_TERRAIN   = 2
-	ED_UNITS     = 3
-	ED_LOCATIONS = 4
-	ED_OBSTACLE  = 5
+	MAP_SELECT   = 1
+	BOUNDING     = 2
+	PAUSE_MENU   = 3
+	ED_TERRAIN   = 4
+	ED_UNITS     = 5
+	ED_LOCATIONS = 6
+	ED_OBSTACLE  = 7
 
 def main(raw_args=None):
 	parser = argparse.ArgumentParser(description=GAME_VERS, formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
@@ -45,9 +49,10 @@ def main(raw_args=None):
 	RESOLUTION     = Vector2(args.sw, args.sh)
 	RUN_FULLSCREEN = args.fullscreen
 	#
-	py_dir  = pathlib.Path(__file__).resolve().parent
-	GFX_DIR = os.path.join(py_dir, 'assets', 'gfx')
-	SFX_DIR = os.path.join(py_dir, 'assets', 'audio')
+	py_dir   = pathlib.Path(__file__).resolve().parent
+	GFX_DIR  = os.path.join(py_dir, 'assets', 'gfx')
+	SFX_DIR  = os.path.join(py_dir, 'assets', 'audio')
+	FONT_DIR = os.path.join(py_dir, 'assets', 'font')
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
@@ -57,6 +62,8 @@ def main(raw_args=None):
 	#
 	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
 	player_sound_fns = get_file_paths(SFX_DIR, ['zzedth00.wav'])
+	#
+	pixel_font_fns = get_file_paths(FONT_DIR, ['small_font.png', 'large_font.png'])
 
 	#
 	# initialize pygame
@@ -68,38 +75,58 @@ def main(raw_args=None):
 	if RUN_FULLSCREEN:
 		disp_flags |= pygame.FULLSCREEN
 	screen     = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
+	trans_fade = pygame.Surface(RESOLUTION)
 	main_clock = pygame.time.Clock()
 	#pygame.event.set_grab(True)
+
+	# font objects
+	font_loc   = pygame.font.SysFont("Verdana", 12)
+	font_stats = pygame.font.SysFont("Verdana", 20)
+	font_lives = pygame.font.SysFont("Verdana", 24)
+	font_buttonbig = pygame.font.SysFont("Verdana", 30)
+	font_buttonbig_hover = pygame.font.SysFont("Verdana", 32)
+	font_dict = {'small' : Font(pixel_font_fns[0]),
+	             'large' : Font(pixel_font_fns[1])}
 
 	#
 	# load world and place player 1
 	#
-	world_map = WorldMap(INPUT_MAP)
+	world_map = WorldMap(INPUT_MAP, font_dict)
 	if world_map.p_starts[0] == None:
 		print('No player 1 start found')
 		exit(1)
-	MAP_WIDTH  = world_map.map_width
-	MAP_HEIGHT = world_map.map_height
+	map_width  = world_map.map_width * GRID_SIZE
+	map_height = world_map.map_height * GRID_SIZE
 	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
-	my_player.num_lives = 1
+	my_player.num_lives = world_map.init_lives
 
 	# load animation gfx
 	my_animations = AnimationManager()
 	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
 
-	# font objects
-	loc_font   = pygame.font.SysFont("Verdana", 12)
-	stats_font = pygame.font.SysFont("Verdana", 20)
-	lives_font = pygame.font.SysFont("Verdana", 24)
-
 	# other gfx
 	my_cursor = Cursor(cursor_img_fns)
+	#
 	widget_playerselected = UIWidget()
-	widget_playerselected.add_element('box', (Vector2(8, RESOLUTION.y - 72), Vector2(160, RESOLUTION.y - 8), Color.WIDGET_SEL))
+	widget_playerselected.add_element('rect', (Vector2(8, RESOLUTION.y - 72), Vector2(160, RESOLUTION.y - 8), Color.WIDGET_SEL, 6))
 	widget_playerselected.add_element('image', (Vector2(10, RESOLUTION.y - 66), ui_gfx_img_fns[0]))
-	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80, RESOLUTION.y - 70), lives_font, Color.LIFECOUNT))
-	widget_playerselected.add_element('text', ('', 'lifecount', Vector2(90, RESOLUTION.y - 42), lives_font, Color.LIFECOUNT))
+	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80, RESOLUTION.y - 70), font_lives, Color.LIFECOUNT))
+	widget_playerselected.add_element('text', ('', 'lifecount', Vector2(90, RESOLUTION.y - 42), font_lives, Color.LIFECOUNT))
+	#
+	(tl, br) = (Vector2(128, 64), Vector2(RESOLUTION.x - 128, 128))
+	widget_button_play = UIWidget()
+	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 6))
+	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_buttonbig, Color.MENU_BUTTON_TEXT), mouseover_condition=(True,False))
+	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_buttonbig_hover, Color.MENU_BUTTON_TEXT_HOVER), mouseover_condition=(False,True))
+	widget_button_play.add_return_message('play')
+	#
+	(tl, br) = (Vector2(128, 160), Vector2(RESOLUTION.x - 128, 224))
+	widget_button_editor = UIWidget()
+	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 6))
+	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_buttonbig, Color.MENU_BUTTON_TEXT), mouseover_condition=(True,False))
+	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_buttonbig_hover, Color.MENU_BUTTON_TEXT_HOVER), mouseover_condition=(False,True))
+	widget_button_editor.add_return_message('editor')
 
 	# load sounds
 	my_audio = AudioManager()
@@ -107,21 +134,16 @@ def main(raw_args=None):
 	my_audio.add_sound(exp_sound_fns[1], 'scourge')
 	my_audio.add_sound(player_sound_fns[0], 'player_death')
 
-	# test obstacle
-	my_obstacle = Obstacle((Vector2(96,64),Vector2(128,128)), (Vector2(352,64),Vector2(384,128)), Vector2(96,96), loc_font=loc_font)
-	my_obstacle.add_location('1-1', Vector2(128,64),  Vector2(192,128), 'overlord', 'overlord')
-	my_obstacle.add_location('1-2', Vector2(192,64),  Vector2(256,128), 'overlord', 'overlord')
-	my_obstacle.add_location('1-3', Vector2(256,64),  Vector2(320,128), 'overlord', 'overlord')
-	my_obstacle.add_location('1-4', Vector2(192,128), Vector2(256,192), 'overlord', 'overlord')
-	my_obstacle.add_event('explode_locs', ['1-1', '1-2', '1-3'], 16)
-	my_obstacle.add_event('explode_locs', ['1-2', '1-4'],        16)
-
 	# misc vars
 	WINDOW_OFFSET = Vector2(0, 0)
 	SCROLL_X      = Vector2(SCROLL_SPEED, 0)
 	SCROLL_Y      = Vector2(0, SCROLL_SPEED)
 	TIME_SPENT    = [0.]
 	selection_box = [None, None]
+
+	#
+	next_gamestate   = None
+	transition_alpha = deque([])
 
 	# inputs that can be held down across frames
 	shift_pressed = False
@@ -132,7 +154,7 @@ def main(raw_args=None):
 
 	# Main game loop --------------------------------------------- #
 	current_frame = 0
-	current_gamestate = GameState.BOUNDING
+	current_gamestate = GameState.START_MENU
 	while True:
 		#
 		# Get keyboard / mouse inputs ---------------------------- #
@@ -202,12 +224,34 @@ def main(raw_args=None):
 		# STARTING MENU
 		#
 		if current_gamestate == GameState.START_MENU:
-			pass
+			#
+			menu_widgets = [widget_button_play, widget_button_editor]
+			#
+			mw_output_msgs = {}
+			for mw in menu_widgets:
+				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+				mw.draw(screen)
+			for msg in mw_output_msgs:
+				if msg == 'play' and not transition_alpha:
+					next_gamestate   = GameState.BOUNDING
+					transition_alpha = deque([102, 153, 204, 255, 204, 153, 102])
+
+		#
+		# MAP SELECTION MENU
+		#
+		elif current_gamestate == GameState.MAP_SELECT:
+			#
+			menu_widgets = []
+			#
+			mw_output_msgs = {}
+			for mw in menu_widgets:
+				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+				mw.draw(screen)
 
 		#
 		# WE ARE BOUNDING.
 		#
-		if current_gamestate == GameState.BOUNDING:
+		elif current_gamestate == GameState.BOUNDING:
 			#
 			# processing player inputs: moving screen
 			#
@@ -219,8 +263,8 @@ def main(raw_args=None):
 				WINDOW_OFFSET += SCROLL_Y
 			if arrow_down and not arrow_up:
 				WINDOW_OFFSET -= SCROLL_Y
-			WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  MAP_WIDTH, 0), 0)
-			WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - MAP_HEIGHT, 0), 0)
+			WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  map_width, 0), 0)
+			WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - map_height, 0), 0)
 
 			#
 			# processing player inputs: selection + movement orders
@@ -244,23 +288,25 @@ def main(raw_args=None):
 			#
 			# update obstacles
 			#
-			my_obstacle.check_for_ob_start(my_player.position)
-			my_obstacle.check_for_ob_end(my_player.position)
-			(ob_gfx, ob_snd, ob_kill, ob_tele) = my_obstacle.tick()
-			for n in ob_gfx:
-				my_animations.start_new_animation(n[0], n[1])
-			for n in ob_snd:
-				my_audio.play_sound(n[0], volume=0.5)
-			if ob_kill:
-				player_died = my_player.check_kill_boxes(ob_kill)
-				if player_died:
-					my_player.revive_at_pos(my_obstacle.revive_coords)
-					my_audio.play_sound('player_death', volume=0.5)
-			####if current_frame == 300:
-			####	my_player.add_lives(10, my_obstacle.revive_coords)
+			for obname, ob in world_map.obstacles.items():
+				ob.check_for_ob_start(my_player.position)
+				ob.check_for_ob_end(my_player.position)
+				(ob_gfx, ob_snd, ob_kill, ob_tele) = ob.tick()
+				for n in ob_gfx:
+					my_animations.start_new_animation(n[0], n[1])
+				for n in ob_snd:
+					my_audio.play_sound(n[0], volume=0.5)
+				if ob_kill:
+					player_died = my_player.check_kill_boxes(ob_kill)
+					if player_died:
+						my_player.revive_at_pos(ob.revive_coords)
+						my_audio.play_sound('player_death', volume=0.5)
+				####if current_frame == 300:
+				####	my_player.add_lives(10, ob.revive_coords)
 
 			# Terrain ------------------------------------------------ #
-			my_obstacle.draw(screen, WINDOW_OFFSET)
+			for obname, ob in world_map.obstacles.items():
+				ob.draw(screen, WINDOW_OFFSET)
 			world_map.draw(screen, WINDOW_OFFSET, draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
@@ -277,12 +323,23 @@ def main(raw_args=None):
 			# Draw cursor -------------------------------------------- #
 			my_cursor.draw(screen)
 
+		# Draw transition fade ----------------------------------- #
+		if next_gamestate != None:
+			current_opacity = transition_alpha.popleft()
+			trans_fade.fill(Color.BACKGROUND)
+			trans_fade.set_alpha(current_opacity)
+			screen.blit(trans_fade, (0,0))
+			if current_opacity >= 255:
+				current_gamestate = next_gamestate
+			if not transition_alpha:
+				next_gamestate = None
+
 		# Print FPS ---------------------------------------------- #
-		fps_text = stats_font.render('{0:0.2f}'.format(main_clock.get_fps()), True, Color.INFO_TEXT)
+		fps_text = font_stats.render('{0:0.2f}'.format(main_clock.get_fps()), True, Color.INFO_TEXT)
 		screen.blit(fps_text, (RESOLUTION[0]-64, 0))
 
 		# Print mouse coordinates -------------------------------- #
-		coords_text = stats_font.render('{0}, {1}'.format(int(mouse_pos_map.x), int(mouse_pos_map.y)), True, Color.INFO_TEXT)
+		coords_text = font_stats.render('{0}, {1}'.format(int(mouse_pos_map.x), int(mouse_pos_map.y)), True, Color.INFO_TEXT)
 		screen.blit(coords_text, (RESOLUTION[0]-100, RESOLUTION[1]-32))
 
 		# Update ------------------------------------------------- #

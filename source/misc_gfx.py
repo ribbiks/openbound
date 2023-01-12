@@ -24,6 +24,9 @@ class Color:
 	OB_REVIVE   = (220, 220, 220)	#
 	LOC_BG      = (100, 100, 100)	#
 	LOC_TEXT    = (  0,   0,   0)	#
+	MENU_BUTTON_BG         = (220, 220, 220)
+	MENU_BUTTON_TEXT       = (  0,   0,   0)
+	MENU_BUTTON_TEXT_HOVER = ( 70,  70,  70)
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+1, gridsize):

@@ -208,7 +208,7 @@ def valid_player_pos(v, map_dat, unit_radius):
 #
 def pathfind(world_object, starting_pos, ending_pos):
 	#
-	map_dat      = world_object.map_dat
+	map_dat      = world_object.wall_map
 	pf_nodes     = world_object.nodes
 	pf_edges     = world_object.edges
 	pf_regionmap = world_object.regionmap

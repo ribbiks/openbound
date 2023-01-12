@@ -8,7 +8,7 @@ from source.misc_gfx import Color, OB_REVIVE_RADIUS
 # all boxes are defined by a list of Vector2s: [topleft, bottomright]
 
 class Obstacle:
-	def __init__(self, startbox, endbox, revive, loc_font=None):
+	def __init__(self, startbox, endbox, revive, font_loc=None):
 		self.start_box     = startbox
 		self.end_box       = endbox
 		self.revive_coords = revive
@@ -17,7 +17,7 @@ class Obstacle:
 		self.event_index   = 0
 		self.is_activated  = False
 		self.was_activated = False
-		self.loc_font      = loc_font
+		self.font_loc      = font_loc
 
 	#
 	#
@@ -42,14 +42,15 @@ class Obstacle:
 			                     Vector2(self.locs[k][1].x, self.locs[k][0].y) + offset,
 			                     self.locs[k][1] + offset,
 			                     Vector2(self.locs[k][0].x, self.locs[k][1].y) + offset])
-			loc_labels.append((k, self.locs[k][0] + Vector2(2,1) + offset))
+			loc_labels.append((k, self.locs[k][0] + Vector2(5,5) + offset))
 		#
 		for p in loc_polygons:
 			pygame.draw.polygon(screen, Color.LOC_BG, p)
-		if self.loc_font != None:
+		if self.font_loc != None:
 			for text_dat in loc_labels:
-				text = self.loc_font.render(text_dat[0], True, Color.LOC_TEXT)
-				screen.blit(text, text_dat[1])
+				self.font_loc.render(screen, text_dat[0], text_dat[1])
+				#text = self.font_loc.render(text_dat[0], True, Color.LOC_TEXT)
+				#screen.blit(text, text_dat[1])
 		pygame.draw.polygon(screen, Color.OB_STARTBOX, start_p)
 		pygame.draw.polygon(screen, Color.OB_ENDBOX, end_p)
 		pygame.draw.polygon(screen, Color.OB_REVIVE, revive_p)
