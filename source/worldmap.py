@@ -12,7 +12,7 @@ from source.pathfinding import get_pathfinding_data, UNIT_RADIUS_EPS
 from source.tile_data   import TILE_DATA
 
 class WorldMap:
-	def __init__(self, map_filename, font_dict):
+	def __init__(self, map_filename, tile_filename_list, font_dict):
 		#
 		# load in basic map data
 		#
@@ -28,10 +28,18 @@ class WorldMap:
 		self.tile_dat   = np.array(json_dat['tile_dat']).T
 		self.wall_map   = np.zeros((self.map_width, self.map_height))
 		#
+		self.tile_imgs  = {}
 		for i in range(self.tile_dat.shape[0]):
 			for j in range(self.tile_dat.shape[1]):
 				(is_wall, name, image_fn) = TILE_DATA[self.tile_dat[i,j]]
 				self.wall_map[i,j] = is_wall
+				self.tile_imgs[self.tile_dat[i,j]] = None
+		#
+		for k in self.tile_imgs.keys():
+			my_tile_fn = tile_filename_list[k]
+			if my_tile_fn:
+				self.tile_imgs[k] = pygame.image.load(my_tile_fn).convert()
+		self.tid_not_blank = {k:(self.tile_imgs[k] != None) for k in self.tile_imgs.keys()}
 		#
 		self.p_loswidth = PLAYER_RADIUS - UNIT_RADIUS_EPS
 
@@ -50,7 +58,7 @@ class WorldMap:
 			self.obstacles[my_ob_key] = Obstacle((Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
 			                                     (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
 			                                     Vector2(revive[0], revive[1]),
-			                                     font_loc=font_dict['large'])
+			                                     font_loc=font_dict['small'])
 			for k2 in loc_keys:
 				my_loc_key = k2[4:]
 				my_loc_dat = json_dat[k][k2]
@@ -113,22 +121,39 @@ class WorldMap:
 	#
 	#
 	#
-	def draw(self, screen, offset, draw_pathing=False):
-		terrain_polygons = []
-		for x in range(self.wall_map.shape[0]):
-			for y in range(self.wall_map.shape[1]):
-				if self.wall_map[x,y] == 1:
-					terrain_polygons.append([Vector2(    x*GRID_SIZE,     y*GRID_SIZE) + offset,
-					                         Vector2((x+1)*GRID_SIZE,     y*GRID_SIZE) + offset,
-					                         Vector2((x+1)*GRID_SIZE, (y+1)*GRID_SIZE) + offset,
-					                         Vector2(    x*GRID_SIZE, (y+1)*GRID_SIZE) + offset])
+	def draw(self, screen, offset, draw_tiles=True, draw_obs=True, draw_walkable=True, draw_pathing=False):
 		num_regions = len(self.nodes)
+		#
+		terrain_polygons     = []
 		collision_lines_draw = []
-		for rid in range(num_regions):
-			for line in self.collision[rid]:
-				collision_lines_draw.append([line[0] + offset,
-				                             line[1] + offset])
-		all_edges_draw = []
+		all_edges_draw       = []
+		pf_ext_polygons      = []
+		#
+		if draw_tiles:
+			for x in range(self.map_width):
+				for y in range(self.map_height):
+					my_pos = Vector2(x*GRID_SIZE, y*GRID_SIZE) + offset
+					my_tid = self.tile_dat[x,y]
+					if self.tid_not_blank[my_tid]:
+						screen.blit(self.tile_imgs[my_tid], my_pos)
+		#
+		if draw_obs:
+			for k,ob in self.obstacles.items():
+				ob.draw(screen, offset)
+		#
+		if draw_walkable:
+			for x in range(self.wall_map.shape[0]):
+				for y in range(self.wall_map.shape[1]):
+					if self.wall_map[x,y] == 1:
+						terrain_polygons.append([Vector2(    x*GRID_SIZE,     y*GRID_SIZE) + offset,
+						                         Vector2((x+1)*GRID_SIZE,     y*GRID_SIZE) + offset,
+						                         Vector2((x+1)*GRID_SIZE, (y+1)*GRID_SIZE) + offset,
+						                         Vector2(    x*GRID_SIZE, (y+1)*GRID_SIZE) + offset])
+			for rid in range(num_regions):
+				for line in self.collision[rid]:
+					collision_lines_draw.append([line[0] + offset,
+					                             line[1] + offset])
+		#
 		if draw_pathing:
 			for rid in range(num_regions):
 				region_edges = {}
@@ -139,7 +164,7 @@ class WorldMap:
 				for (i,j) in region_edges.keys():
 					all_edges_draw.append([self.nodes[rid][i] + offset,
 										   self.nodes[rid][j] + offset])
-		pf_ext_polygons = []
+		#
 		if draw_pathing:
 			for rid in range(num_regions):
 				for [x,y] in self.nodes[rid]:
@@ -149,10 +174,10 @@ class WorldMap:
 					                        Vector2(x - PF_NODE_RADIUS, y + PF_NODE_RADIUS) + offset])
 		#
 		for p in terrain_polygons:
-			pygame.draw.polygon(screen, Color.TERRAIN, p)
+			pygame.draw.polygon(screen, Color.PAL_BLUE_3, p)
 		for edge in collision_lines_draw:
-			pygame.draw.line(screen, Color.PF_COLL, edge[0], edge[1], width=2)
+			pygame.draw.line(screen, Color.PAL_BLUE_2, edge[0], edge[1], width=2)
 		for edge in all_edges_draw:
-			pygame.draw.line(screen, Color.PF_EDGE, edge[0], edge[1], width=1)
+			pygame.draw.line(screen, Color.PAL_BLUE_3, edge[0], edge[1], width=1)
 		for p in pf_ext_polygons:
-			pygame.draw.polygon(screen, Color.PF_NODE, p)
+			pygame.draw.polygon(screen, Color.PAL_BLUE_2, p)

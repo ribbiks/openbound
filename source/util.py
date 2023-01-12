@@ -17,9 +17,9 @@ def rm(fn):
 		os.remove(fn)
 
 def get_file_paths(d, img_list):
-	path_list = [os.path.join(d, n) for n in img_list]
+	path_list = [(len(n) > 0)*os.path.join(d, n) for n in img_list]
 	for n in path_list:
-		if not exists_and_is_nonzero(n):
+		if len(n) and not exists_and_is_nonzero(n):
 			print('Error: file not found')
 			print('--', n)
 			exit(1)

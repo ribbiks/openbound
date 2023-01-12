@@ -32,11 +32,11 @@ class UIWidget:
 		elif obj_type == 'rect':
 			self.object_data.append((obj_content[0], obj_content[1], obj_content[2], obj_content[3]))
 		#
-		# TEXT: obj_content = (text, text_key, pos, font_object, color)
+		# TEXT: obj_content = (text, text_key, pos, font_object)
 		#
 		elif obj_type == 'text':
 			self.text_data[obj_content[1]] = obj_content[0]
-			self.object_data.append((obj_content[1], obj_content[2], obj_content[3], obj_content[4]))
+			self.object_data.append((obj_content[1], obj_content[2], obj_content[3]))
 
 	def add_return_message(self, msg):
 		self.return_msg = msg
@@ -75,7 +75,8 @@ class UIWidget:
 				#
 				#
 				elif self.object_types[i] == 'text':
-					(text_key, pos, font, color) = obj_dat
-					text = font.render(self.text_data[text_key], True, color)
-					text_rect = text.get_rect(center=pos)
-					screen.blit(text, text_rect)
+					(text_key, pos, font) = obj_dat
+					font.render(screen, self.text_data[text_key], pos)
+					#text = font.render(self.text_data[text_key], True, color)
+					#text_rect = text.get_rect(center=pos)
+					#screen.blit(text, text_rect)

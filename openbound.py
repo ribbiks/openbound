@@ -18,8 +18,9 @@ from source.font             import Font
 from source.geometry         import value_clamp
 from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
 from source.mauzling         import Mauzling
-from source.misc_gfx         import Color, draw_grid, draw_selection_box
+from source.misc_gfx         import Color, draw_grid, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
+from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
 from source.worldmap         import WorldMap
@@ -37,6 +38,8 @@ class GameState:
 	ED_LOCATIONS = 6
 	ED_OBSTACLE  = 7
 
+UPSCALE_2X = True
+
 def main(raw_args=None):
 	parser = argparse.ArgumentParser(description=GAME_VERS, formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
 	parser.add_argument('-i',  type=str, required=True,  metavar='input.map', help="* map to load")
@@ -53,6 +56,7 @@ def main(raw_args=None):
 	GFX_DIR  = os.path.join(py_dir, 'assets', 'gfx')
 	SFX_DIR  = os.path.join(py_dir, 'assets', 'audio')
 	FONT_DIR = os.path.join(py_dir, 'assets', 'font')
+	TILE_DIR = os.path.join(py_dir, 'assets', 'tiles')
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
@@ -64,6 +68,9 @@ def main(raw_args=None):
 	player_sound_fns = get_file_paths(SFX_DIR, ['zzedth00.wav'])
 	#
 	pixel_font_fns = get_file_paths(FONT_DIR, ['small_font.png', 'large_font.png'])
+	#
+	tile_keys = sorted(TILE_DATA.keys())
+	tile_fns  = get_file_paths(TILE_DIR, [TILE_DATA[n][2] for n in tile_keys])
 
 	#
 	# initialize pygame
@@ -74,24 +81,25 @@ def main(raw_args=None):
 	disp_flags = 0
 	if RUN_FULLSCREEN:
 		disp_flags |= pygame.FULLSCREEN
-	screen     = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
+	if UPSCALE_2X:
+		upscale_screen = pygame.display.set_mode(size=2*RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
+		screen         = pygame.Surface(RESOLUTION)
+	else:
+		screen     = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
 	trans_fade = pygame.Surface(RESOLUTION)
 	main_clock = pygame.time.Clock()
 	#pygame.event.set_grab(True)
 
 	# font objects
-	font_loc   = pygame.font.SysFont("Verdana", 12)
-	font_stats = pygame.font.SysFont("Verdana", 20)
-	font_lives = pygame.font.SysFont("Verdana", 24)
-	font_buttonbig = pygame.font.SysFont("Verdana", 30)
-	font_buttonbig_hover = pygame.font.SysFont("Verdana", 32)
-	font_dict = {'small' : Font(pixel_font_fns[0]),
-	             'large' : Font(pixel_font_fns[1])}
+	font_dict = {'small' :    Font(pixel_font_fns[0], Color.LOC_TEXT),
+	             'large' :    Font(pixel_font_fns[1], Color.LOC_TEXT),
+	             'lifecount': Font(pixel_font_fns[1], Color.PAL_YEL_1),
+	             'fps':       Font(pixel_font_fns[1], Color.PAL_WHITE)}
 
 	#
 	# load world and place player 1
 	#
-	world_map = WorldMap(INPUT_MAP, font_dict)
+	world_map = WorldMap(INPUT_MAP, tile_fns, font_dict)
 	if world_map.p_starts[0] == None:
 		print('No player 1 start found')
 		exit(1)
@@ -109,23 +117,23 @@ def main(raw_args=None):
 	my_cursor = Cursor(cursor_img_fns)
 	#
 	widget_playerselected = UIWidget()
-	widget_playerselected.add_element('rect', (Vector2(8, RESOLUTION.y - 72), Vector2(160, RESOLUTION.y - 8), Color.WIDGET_SEL, 6))
+	widget_playerselected.add_element('rect', (Vector2(8, RESOLUTION.y - 72), Vector2(160, RESOLUTION.y - 8), Color.PAL_BLUE_3, 7))
 	widget_playerselected.add_element('image', (Vector2(10, RESOLUTION.y - 66), ui_gfx_img_fns[0]))
-	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80, RESOLUTION.y - 70), font_lives, Color.LIFECOUNT))
-	widget_playerselected.add_element('text', ('', 'lifecount', Vector2(90, RESOLUTION.y - 42), font_lives, Color.LIFECOUNT))
+	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80, RESOLUTION.y - 70), font_dict['lifecount']))
+	widget_playerselected.add_element('text', ('',   'lifecount', Vector2(90, RESOLUTION.y - 42), font_dict['lifecount']))
 	#
 	(tl, br) = (Vector2(128, 64), Vector2(RESOLUTION.x - 128, 128))
 	widget_button_play = UIWidget()
-	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 6))
-	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_buttonbig, Color.MENU_BUTTON_TEXT), mouseover_condition=(True,False))
-	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_buttonbig_hover, Color.MENU_BUTTON_TEXT_HOVER), mouseover_condition=(False,True))
+	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 7))
+	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_dict['large']), mouseover_condition=(True,False))
+	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_dict['large']), mouseover_condition=(False,True))
 	widget_button_play.add_return_message('play')
 	#
 	(tl, br) = (Vector2(128, 160), Vector2(RESOLUTION.x - 128, 224))
 	widget_button_editor = UIWidget()
-	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 6))
-	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_buttonbig, Color.MENU_BUTTON_TEXT), mouseover_condition=(True,False))
-	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_buttonbig_hover, Color.MENU_BUTTON_TEXT_HOVER), mouseover_condition=(False,True))
+	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 7))
+	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_dict['large']), mouseover_condition=(True,False))
+	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_dict['large']), mouseover_condition=(False,True))
 	widget_button_editor.add_return_message('editor')
 
 	# load sounds
@@ -201,18 +209,23 @@ def main(raw_args=None):
 				if event.button == 1:
 					left_released = True
 		#
-		mx, my           = pygame.mouse.get_pos()
-		mouse_pos_screen = Vector2(mx,my)
-		mouse_pos_map    = mouse_pos_screen - WINDOW_OFFSET
+		(mx,my) = pygame.mouse.get_pos()
+		if UPSCALE_2X:
+			upscaled_size = upscale_screen.get_size()	# might be 2x resoltuion, might be full monitor resolution
+			mouse_scale_factor = (RESOLUTION.x/upscaled_size[0], RESOLUTION.y/upscaled_size[1])
+			mouse_pos_screen = Vector2(int(mx*mouse_scale_factor[0] + 0.5), int(my*mouse_scale_factor[1] + 0.5))
+		else:
+			mouse_pos_screen = Vector2(mx,my)
+		mouse_pos_map = mouse_pos_screen - WINDOW_OFFSET
 		#
 		if left_clicking:
-			selection_box = [Vector2(mx,my), None]
+			selection_box = [Vector2(mouse_pos_screen.x, mouse_pos_screen.y), None]
 		if left_released:
 			if selection_box[0] != None:
 				if selection_box[1] == None:
 					selection_box[1] = selection_box[0]
 		if selection_box[0] != None:
-			selection_box[1] = Vector2(mx,my)
+			selection_box[1] = Vector2(mouse_pos_screen.x, mouse_pos_screen.y)
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
@@ -234,7 +247,7 @@ def main(raw_args=None):
 			for msg in mw_output_msgs:
 				if msg == 'play' and not transition_alpha:
 					next_gamestate   = GameState.BOUNDING
-					transition_alpha = deque([102, 153, 204, 255, 204, 153, 102])
+					transition_alpha = deque(FADE_SEQUENCE)
 
 		#
 		# MAP SELECTION MENU
@@ -295,19 +308,20 @@ def main(raw_args=None):
 				for n in ob_gfx:
 					my_animations.start_new_animation(n[0], n[1])
 				for n in ob_snd:
-					my_audio.play_sound(n[0], volume=0.5)
+					my_audio.play_sound(n[0], volume=0.3)
 				if ob_kill:
 					player_died = my_player.check_kill_boxes(ob_kill)
 					if player_died:
 						my_player.revive_at_pos(ob.revive_coords)
-						my_audio.play_sound('player_death', volume=0.5)
+						my_audio.play_sound('player_death', volume=0.3)
 				####if current_frame == 300:
 				####	my_player.add_lives(10, ob.revive_coords)
 
-			# Terrain ------------------------------------------------ #
-			for obname, ob in world_map.obstacles.items():
-				ob.draw(screen, WINDOW_OFFSET)
-			world_map.draw(screen, WINDOW_OFFSET, draw_pathing=False)
+			# Terrain / Obstacles ------------------------------------ #
+			world_map.draw(screen, WINDOW_OFFSET, draw_tiles=True,
+			                                      draw_obs=False,
+			                                      draw_walkable=False,
+			                                      draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
 			my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=False)
@@ -328,19 +342,22 @@ def main(raw_args=None):
 			current_opacity = transition_alpha.popleft()
 			trans_fade.fill(Color.BACKGROUND)
 			trans_fade.set_alpha(current_opacity)
-			screen.blit(trans_fade, (0,0))
+			screen.blit(trans_fade, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
 			if current_opacity >= 255:
 				current_gamestate = next_gamestate
 			if not transition_alpha:
 				next_gamestate = None
 
-		# Print FPS ---------------------------------------------- #
-		fps_text = font_stats.render('{0:0.2f}'.format(main_clock.get_fps()), True, Color.INFO_TEXT)
-		screen.blit(fps_text, (RESOLUTION[0]-64, 0))
+		# Print FPS / mouse coords ------------------------------- #
+		fps_str = '{0:0.2f}'.format(main_clock.get_fps())
+		mxy_str = '{0}, {1}'.format(int(mouse_pos_map.x), int(mouse_pos_map.y))
+		font_dict['fps'].render(screen, fps_str, Vector2(RESOLUTION[0]-34, 4), centered=False)
+		font_dict['fps'].render(screen, mxy_str, Vector2(RESOLUTION[0]-58, RESOLUTION[1]-17), centered=False)
 
-		# Print mouse coordinates -------------------------------- #
-		coords_text = font_stats.render('{0}, {1}'.format(int(mouse_pos_map.x), int(mouse_pos_map.y)), True, Color.INFO_TEXT)
-		screen.blit(coords_text, (RESOLUTION[0]-100, RESOLUTION[1]-32))
+		# Stretch screen to fill upsized window (if needed) ------ #
+		if UPSCALE_2X:
+			scaled_screen = pygame.transform.scale(screen, upscale_screen.get_size())
+			upscale_screen.blit(scaled_screen, (0,0))
 
 		# Update ------------------------------------------------- #
 		pygame.display.update()

@@ -5,19 +5,17 @@ from pygame.math import Vector2
 PF_NODE_RADIUS   = 4	# width of pathfinding nodes (for drawing)
 OB_REVIVE_RADIUS = 3	# width of revive spot (for drawing)
 
+# opacity (out of 255) for fading to black during screen transitions
+# -- gamestate changes occur on the first instance of 255
+FADE_SEQUENCE = [50, 100, 150, 200, 250, 255, 250, 150, 100, 50]
+
 class Color:
 	BACKGROUND  = (  0,   0,   0)	#
 	INFO_TEXT   = (255, 255, 255)	# fps indicators, mouse positioning, etc
-	TERRAIN     = (  0,  60, 180)	# blocking tiles
-	PF_COLL     = (  0, 150, 250)	# boundaries of blocking tiles
-	PF_NODE     = (200,  30,  30)	# pathfinding nodes
-	PF_EDGE     = (  0, 100,   0)	# pathfinding edges
 	GRID_MAJOR  = ( 40,  40,  40)	#
 	GRID_MINOR  = ( 25,  25,  25)	#
 	HITBOX      = (200, 200, 100)	# player hitbox
 	SELECTION   = ( 50, 200,  50)	# selection box (player left clicking)
-	WIDGET_SEL  = (200, 200, 200)	# background of player stat widget
-	LIFECOUNT   = (160,   0, 160)	#
 	SEL_ELLIPSE = ( 50, 200,  50)	# ellipse that gets drawn underneath selected units
 	OB_STARTBOX = (100, 250, 100)	#
 	OB_ENDBOX   = (250, 100, 100)	#
@@ -27,6 +25,19 @@ class Color:
 	MENU_BUTTON_BG         = (220, 220, 220)
 	MENU_BUTTON_TEXT       = (  0,   0,   0)
 	MENU_BUTTON_TEXT_HOVER = ( 70,  70,  70)
+	PAL_BLUE_1 = (181, 245, 236)
+	PAL_BLUE_2 = ( 91, 172, 227)
+	PAL_BLUE_3 = ( 99, 106, 184)
+	PAL_BLUE_4 = ( 87,  65, 117)
+	PAL_BLUE_5 = ( 47,  35,  56)
+	PAL_WHITE  = (255, 255, 255)
+	PAL_BLACK  = (  0,   0,   0)
+	PAL_YEL_1  = (247, 255, 237)
+	PAL_YEL_2  = (245, 229, 191)
+	PAL_YEL_3  = (232, 173, 128)
+	PAL_YEL_4  = (207, 120,  76)
+	PAL_YEL_5  = (173,  88,  69)
+	PAL_YEL_6  = (115,  56,  62)
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+1, gridsize):
