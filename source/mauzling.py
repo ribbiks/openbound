@@ -346,31 +346,26 @@ class Mauzling:
 	#
 	def issue_new_order(self, order, shift_pressed):
 		if not self.is_selected:
-			print('rejected order:', order, '(not selected)')
 			return False
 		if shift_pressed:
 			if len(self.order_queue) >= MAX_ORDERS_IN_QUEUE:
-				print('rejected order:', order, '(queue full)')
 				return True
 			move_type = OrderType.QUEUE
 		else:
 			move_type = OrderType.NEW
 		# don't accept redundant orders within move_delay window
 		if len(self.inc_orders) and order == self.inc_orders[-1][0]:
-			print('rejected order:', order, '(redundant)')
 			return True
 		# don't new accept orders if we're already on our way to that exact spot
 		if move_type == OrderType.NEW and self.order_queue:
 			if (order - self.order_queue[-1][0]).length() <= CLICK_DEADZONE:
-				print('rejected order:', order, '(already moving there)')
 				return True
-		# only accept move orders outside our bounding box (+ buffer)
+		# reject order if clicked inside player
 		inside_box = (order.x >= self.bbox[0] - HITBOX_DEADZONE_BUFF and
 		              order.x <= self.bbox[1] + HITBOX_DEADZONE_BUFF and
 		              order.y >= self.bbox[2] - HITBOX_DEADZONE_BUFF and
 		              order.y <= self.bbox[3] + HITBOX_DEADZONE_BUFF)
 		if inside_box:
-			print('rejected order:', order, '(clicked inside player)')
 			return False
 		#
 		self.inc_orders.append([order, MOVE_DELAY, move_type])

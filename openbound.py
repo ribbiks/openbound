@@ -85,15 +85,16 @@ def main(raw_args=None):
 		upscale_screen = pygame.display.set_mode(size=2*RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
 		screen         = pygame.Surface(RESOLUTION)
 	else:
-		screen     = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
+		screen = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
 	trans_fade = pygame.Surface(RESOLUTION)
 	main_clock = pygame.time.Clock()
 	#pygame.event.set_grab(True)
 
 	# font objects
-	font_dict = {'small' :    Font(pixel_font_fns[0], Color.LOC_TEXT),
-	             'large' :    Font(pixel_font_fns[1], Color.LOC_TEXT),
-	             'lifecount': Font(pixel_font_fns[1], Color.PAL_YEL_1),
+	font_dict = {'small' :    Font(pixel_font_fns[0], Color.PAL_BLACK),
+	             'large' :    Font(pixel_font_fns[1], Color.PAL_BLACK),
+	             'large_w' :  Font(pixel_font_fns[1], Color.PAL_WHITE),
+	             'lifecount': Font(pixel_font_fns[1], Color.LIFECOUNT),
 	             'fps':       Font(pixel_font_fns[1], Color.PAL_WHITE)}
 
 	#
@@ -117,24 +118,31 @@ def main(raw_args=None):
 	my_cursor = Cursor(cursor_img_fns)
 	#
 	widget_playerselected = UIWidget()
-	widget_playerselected.add_element('rect', (Vector2(8, RESOLUTION.y - 72), Vector2(160, RESOLUTION.y - 8), Color.PAL_BLUE_3, 7))
-	widget_playerselected.add_element('image', (Vector2(10, RESOLUTION.y - 66), ui_gfx_img_fns[0]))
-	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80, RESOLUTION.y - 70), font_dict['lifecount']))
-	widget_playerselected.add_element('text', ('',   'lifecount', Vector2(90, RESOLUTION.y - 42), font_dict['lifecount']))
+	widget_playerselected.add_element('rect', (Vector2(32, RESOLUTION.y - 64), Vector2(160, RESOLUTION.y - 32), Color.PAL_WHITE, 14))
+	widget_playerselected.add_element('image', (Vector2(38, RESOLUTION.y - 62), ui_gfx_img_fns[0]))
+	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(76,  RESOLUTION.y - 55), font_dict['lifecount'], False))
+	widget_playerselected.add_element('text', ('',   'lifecount', Vector2(120, RESOLUTION.y - 55), font_dict['lifecount'], False))
 	#
-	(tl, br) = (Vector2(128, 64), Vector2(RESOLUTION.x - 128, 128))
+	(tl, br) = (Vector2(96, RESOLUTION.y-96), Vector2(224, RESOLUTION.y-64))
 	widget_button_play = UIWidget()
-	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 7))
-	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_dict['large']), mouseover_condition=(True,False))
-	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2, font_dict['large']), mouseover_condition=(False,True))
+	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
 	widget_button_play.add_return_message('play')
 	#
-	(tl, br) = (Vector2(128, 160), Vector2(RESOLUTION.x - 128, 224))
+	(tl, br) = (Vector2(256, RESOLUTION.y-96), Vector2(384, RESOLUTION.y-64))
 	widget_button_editor = UIWidget()
-	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.MENU_BUTTON_BG, 7))
-	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_dict['large']), mouseover_condition=(True,False))
-	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2, font_dict['large']), mouseover_condition=(False,True))
+	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
 	widget_button_editor.add_return_message('editor')
+	#
+	(tl, br) = (Vector2(416, RESOLUTION.y-96), Vector2(544, RESOLUTION.y-64))
+	widget_button_options = UIWidget()
+	widget_button_options.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_button_options.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_button_options.add_element('text', ('Options', 'options', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_button_options.add_return_message('options')
 
 	# load sounds
 	my_audio = AudioManager()
@@ -238,7 +246,7 @@ def main(raw_args=None):
 		#
 		if current_gamestate == GameState.START_MENU:
 			#
-			menu_widgets = [widget_button_play, widget_button_editor]
+			menu_widgets = [widget_button_play, widget_button_editor, widget_button_options]
 			#
 			mw_output_msgs = {}
 			for mw in menu_widgets:

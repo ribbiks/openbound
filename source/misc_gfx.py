@@ -20,24 +20,21 @@ class Color:
 	OB_STARTBOX = (100, 250, 100)	#
 	OB_ENDBOX   = (250, 100, 100)	#
 	OB_REVIVE   = (220, 220, 220)	#
-	LOC_BG      = (100, 100, 100)	#
-	LOC_TEXT    = (  0,   0,   0)	#
-	MENU_BUTTON_BG         = (220, 220, 220)
-	MENU_BUTTON_TEXT       = (  0,   0,   0)
-	MENU_BUTTON_TEXT_HOVER = ( 70,  70,  70)
-	PAL_BLUE_1 = (181, 245, 236)
-	PAL_BLUE_2 = ( 91, 172, 227)
-	PAL_BLUE_3 = ( 99, 106, 184)
-	PAL_BLUE_4 = ( 87,  65, 117)
-	PAL_BLUE_5 = ( 47,  35,  56)
-	PAL_WHITE  = (255, 255, 255)
-	PAL_BLACK  = (  0,   0,   0)
-	PAL_YEL_1  = (247, 255, 237)
-	PAL_YEL_2  = (245, 229, 191)
-	PAL_YEL_3  = (232, 173, 128)
-	PAL_YEL_4  = (207, 120,  76)
-	PAL_YEL_5  = (173,  88,  69)
-	PAL_YEL_6  = (115,  56,  62)
+	LOC_BG      = (150, 150, 150)	#
+	LIFECOUNT   = (163,  70, 163)
+	PAL_BLUE_1  = (181, 245, 236)
+	PAL_BLUE_2  = ( 91, 172, 227)
+	PAL_BLUE_3  = ( 99, 106, 184)
+	PAL_BLUE_4  = ( 87,  65, 117)
+	PAL_BLUE_5  = ( 47,  35,  56)
+	PAL_WHITE   = (255, 255, 255)
+	PAL_BLACK   = (  0,   0,   0)
+	PAL_YEL_1   = (247, 255, 237)
+	PAL_YEL_2   = (245, 229, 191)
+	PAL_YEL_3   = (232, 173, 128)
+	PAL_YEL_4   = (207, 120,  76)
+	PAL_YEL_5   = (173,  88,  69)
+	PAL_YEL_6   = (115,  56,  62)
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+1, gridsize):
