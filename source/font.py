@@ -18,8 +18,8 @@ COLUMN_DELIMITER_COLOR = (127, 127, 127, 255)
 TEXT_CHARACTER_COLOR   = (  0,   0,   0, 255)
 
 class Font():
-	def __init__(self, path, color):
-		self.spacing = 1
+	def __init__(self, path, color, scalar=1):
+		self.spacing = scalar
 		self.character_order = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','.','-',',',':','+','\'','!','?','0','1','2','3','4','5','6','7','8','9','(',')','/','_','=','\\','[',']','*','"','<','>',';']
 		font_img = pygame.image.load(path).convert_alpha()
 		current_char_width = 0
@@ -34,7 +34,10 @@ class Font():
 		for x in range(font_img.get_width()):
 			if font_img.get_at((x,0)) == COLUMN_DELIMITER_COLOR:
 				char_img = clip(font_img, x - current_char_width, 0, current_char_width, font_img.get_height())
-				self.characters[self.character_order[character_count]] = char_img.copy()
+				c = self.character_order[character_count]
+				self.characters[c] = char_img.copy()
+				if scalar > 1:
+					self.characters[c] = pygame.transform.scale(self.characters[c], (scalar*self.characters[c].get_width(), scalar*self.characters[c].get_height()))
 				character_count   += 1
 				current_char_width = 0
 			else:

@@ -135,7 +135,6 @@ def edge_is_collinear(edge, node_dict, all_edges, stepsize=0.1):
 		for i in range(len(nodelist)-1):
 			if [nodelist[i], nodelist[i+1]] in all_edges or [nodelist[i+1], nodelist[i]] in all_edges:
 				num_edges_found += 1
-		print(nodelist, num_edges_found)
 		if num_edges_found == len(nodelist)-1:
 			return True
 	return False

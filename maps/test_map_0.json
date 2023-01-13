@@ -1,8 +1,8 @@
 {
-    "map_name":   "test_map_0",
+    "map_name":   "test map 0",
     "map_author": "mauz",
     "map_notes":  "this is a test, no more no less.",
-    "difficulty": 1,
+    "difficulty": 2,
     "map_width":  32,
     "map_height": 16,
     "starting_lives": 5,

@@ -12,8 +12,8 @@ FADE_SEQUENCE = [50, 100, 150, 200, 250, 255, 250, 150, 100, 50]
 class Color:
 	BACKGROUND  = (  0,   0,   0)	#
 	INFO_TEXT   = (255, 255, 255)	# fps indicators, mouse positioning, etc
-	GRID_MAJOR  = ( 40,  40,  40)	#
-	GRID_MINOR  = ( 25,  25,  25)	#
+	GRID_MAJOR  = ( 36,  36,  36)	#
+	GRID_MINOR  = ( 22,  22,  22)	#
 	HITBOX      = (200, 200, 100)	# player hitbox
 	SELECTION   = ( 50, 200,  50)	# selection box (player left clicking)
 	SEL_ELLIPSE = ( 50, 200,  50)	# ellipse that gets drawn underneath selected units

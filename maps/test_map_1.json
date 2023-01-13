@@ -1,8 +1,8 @@
 {
-    "map_name":   "test_map_1",
-    "map_author": "mauz",
-    "map_notes":  "this is a test, no more no less.",
-    "difficulty": 1,
+    "map_name":   "test map 1",
+    "map_author": "also mauz",
+    "map_notes":  "a big map for testing pathfinding efficiency",
+    "difficulty": 0,
     "map_width":  49,
     "map_height": 49,
     "starting_lives": 5,

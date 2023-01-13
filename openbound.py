@@ -20,6 +20,7 @@ from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
+from source.selectionmenu    import SelectionMenu
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
@@ -42,13 +43,11 @@ UPSCALE_2X = True
 
 def main(raw_args=None):
 	parser = argparse.ArgumentParser(description=GAME_VERS, formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
-	parser.add_argument('-i',  type=str, required=True,  metavar='input.map', help="* map to load")
 	parser.add_argument('-sw', type=int, required=False, metavar='640',       help="screen width",      default=640)
 	parser.add_argument('-sh', type=int, required=False, metavar='480',       help="screen height",     default=480)
 	parser.add_argument('--fullscreen',  required=False, action='store_true', help="run in fullscreen", default=False)
 	args = parser.parse_args()
 	#
-	INPUT_MAP      = args.i
 	RESOLUTION     = Vector2(args.sw, args.sh)
 	RUN_FULLSCREEN = args.fullscreen
 	#
@@ -57,6 +56,7 @@ def main(raw_args=None):
 	SFX_DIR  = os.path.join(py_dir, 'assets', 'audio')
 	FONT_DIR = os.path.join(py_dir, 'assets', 'font')
 	TILE_DIR = os.path.join(py_dir, 'assets', 'tiles')
+	MAP_DIR  = os.path.join(py_dir, 'maps')
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
@@ -71,6 +71,14 @@ def main(raw_args=None):
 	#
 	tile_keys = sorted(TILE_DATA.keys())
 	tile_fns  = get_file_paths(TILE_DIR, [TILE_DATA[n][2] for n in tile_keys])
+	#
+	MAPSELECT_MENU_POS = Vector2(48, 112)
+	all_map_files      = []
+	map_fn_to_load     = None
+	world_map          = None
+	map_width          = None
+	map_height         = None
+	my_player          = None
 
 	#
 	# initialize pygame
@@ -91,23 +99,16 @@ def main(raw_args=None):
 	#pygame.event.set_grab(True)
 
 	# font objects
-	font_dict = {'small' :    Font(pixel_font_fns[0], Color.PAL_BLACK),
-	             'large' :    Font(pixel_font_fns[1], Color.PAL_BLACK),
-	             'large_w' :  Font(pixel_font_fns[1], Color.PAL_WHITE),
-	             'lifecount': Font(pixel_font_fns[1], Color.LIFECOUNT),
-	             'fps':       Font(pixel_font_fns[1], Color.PAL_WHITE)}
-
-	#
-	# load world and place player 1
-	#
-	world_map = WorldMap(INPUT_MAP, tile_fns, font_dict)
-	if world_map.p_starts[0] == None:
-		print('No player 1 start found')
-		exit(1)
-	map_width  = world_map.map_width * GRID_SIZE
-	map_height = world_map.map_height * GRID_SIZE
-	my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
-	my_player.num_lives = world_map.init_lives
+	font_dict = {'small' :     Font(pixel_font_fns[0], Color.PAL_BLACK),
+	             'small_w' :   Font(pixel_font_fns[0], Color.PAL_WHITE),
+	             'large' :     Font(pixel_font_fns[1], Color.PAL_BLACK),
+	             'large_w' :   Font(pixel_font_fns[1], Color.PAL_WHITE),
+	             'lifecount':  Font(pixel_font_fns[1], Color.LIFECOUNT),
+	             'fps':        Font(pixel_font_fns[1], Color.PAL_WHITE),
+	             'titlepic':   Font(pixel_font_fns[1], Color.PAL_BLUE_2, scalar=8),
+	             'titlepic2':  Font(pixel_font_fns[1], Color.PAL_BLUE_3, scalar=8),
+	             'mapselect':  Font(pixel_font_fns[1], Color.PAL_BLUE_2, scalar=4),
+	             'mapselect2': Font(pixel_font_fns[1], Color.PAL_BLUE_3, scalar=4)}
 
 	# load animation gfx
 	my_animations = AnimationManager()
@@ -117,32 +118,125 @@ def main(raw_args=None):
 	# other gfx
 	my_cursor = Cursor(cursor_img_fns)
 	#
+	map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict)
+	#
+	#
+	#
 	widget_playerselected = UIWidget()
 	widget_playerselected.add_element('rect', (Vector2(32, RESOLUTION.y - 64), Vector2(160, RESOLUTION.y - 32), Color.PAL_WHITE, 14))
-	widget_playerselected.add_element('image', (Vector2(38, RESOLUTION.y - 62), ui_gfx_img_fns[0]))
-	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(76,  RESOLUTION.y - 55), font_dict['lifecount'], False))
-	widget_playerselected.add_element('text', ('',   'lifecount', Vector2(120, RESOLUTION.y - 55), font_dict['lifecount'], False))
+	widget_playerselected.add_element('image', (Vector2(40, RESOLUTION.y - 62), ui_gfx_img_fns[0]))
+	widget_playerselected.add_element('text', ('Lives:', 'lives', Vector2(80,  RESOLUTION.y - 54), font_dict['lifecount'], False))
+	widget_playerselected.add_element('text', ('',   'lifecount', Vector2(124, RESOLUTION.y - 54), font_dict['lifecount'], False))
+	#
+	#
+	#
+	widget_titlepic = UIWidget()
+	widget_titlepic.add_element('text', ('OpenBound', 'titlepic', Vector2(RESOLUTION.x/2 + 3, 208) + Vector2(4,4), font_dict['titlepic2'], True))
+	widget_titlepic.add_element('text', ('OpenBound', 'titlepic', Vector2(RESOLUTION.x/2 + 3, 208), font_dict['titlepic'], True))
 	#
 	(tl, br) = (Vector2(96, RESOLUTION.y-96), Vector2(224, RESOLUTION.y-64))
-	widget_button_play = UIWidget()
-	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
-	widget_button_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
-	widget_button_play.add_element('text', ('Play', 'play', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
-	widget_button_play.add_return_message('play')
+	widget_title_play = UIWidget()
+	widget_title_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_title_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_title_play.add_element('text', ('Play', 'play', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_title_play.add_return_message('play')
 	#
 	(tl, br) = (Vector2(256, RESOLUTION.y-96), Vector2(384, RESOLUTION.y-64))
-	widget_button_editor = UIWidget()
-	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
-	widget_button_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
-	widget_button_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
-	widget_button_editor.add_return_message('editor')
+	widget_title_editor = UIWidget()
+	widget_title_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_title_editor.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_title_editor.add_element('text', ('Map Editor', 'editor', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_title_editor.add_return_message('editor')
 	#
 	(tl, br) = (Vector2(416, RESOLUTION.y-96), Vector2(544, RESOLUTION.y-64))
-	widget_button_options = UIWidget()
-	widget_button_options.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
-	widget_button_options.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
-	widget_button_options.add_element('text', ('Options', 'options', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
-	widget_button_options.add_return_message('options')
+	widget_title_options = UIWidget()
+	widget_title_options.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_title_options.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_title_options.add_element('text', ('Options', 'options', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_title_options.add_return_message('options')
+	#
+	#
+	#
+	widget_mapselect_title = UIWidget()
+	widget_mapselect_title.add_element('text', ('Map Select', 'mapselect', Vector2(RESOLUTION.x/2, 52) + Vector2(2,2), font_dict['mapselect2'], True))
+	widget_mapselect_title.add_element('text', ('Map Select', 'mapselect', Vector2(RESOLUTION.x/2, 52), font_dict['mapselect'], True))
+	#
+	(tl, br) = (Vector2(512, RESOLUTION.y-64), Vector2(608, RESOLUTION.y-32))
+	widget_mapselect_back = UIWidget()
+	widget_mapselect_back.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_mapselect_back.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_mapselect_back.add_element('text', ('Back', 'back', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_mapselect_back.add_return_message('back')
+	#
+	(tl, br) = (Vector2(480, RESOLUTION.y-104), Vector2(608, RESOLUTION.y-72))
+	widget_mapselect_play = UIWidget()
+	widget_mapselect_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_mapselect_play.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_mapselect_play.add_element('text', ('Play', 'play', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_mapselect_play.add_return_message('play')
+	#
+	(tl, br) = (Vector2(32, RESOLUTION.y-96), Vector2(112, RESOLUTION.y-72))
+	widget_mapselect_sort_filename = UIWidget()
+	widget_mapselect_sort_filename.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_mapselect_sort_filename.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_mapselect_sort_filename.add_element('text', ('Filename', 'filename', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_mapselect_sort_filename.add_return_message('sort_filename')
+	#
+	(tl, br) = (Vector2(120, RESOLUTION.y-96), Vector2(200, RESOLUTION.y-72))
+	widget_mapselect_sort_author = UIWidget()
+	widget_mapselect_sort_author.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_mapselect_sort_author.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_mapselect_sort_author.add_element('text', ('Author', 'author', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_mapselect_sort_author.add_return_message('sort_author')
+	#
+	(tl, br) = (Vector2(208, RESOLUTION.y-96), Vector2(288, RESOLUTION.y-72))
+	widget_mapselect_sort_diff = UIWidget()
+	widget_mapselect_sort_diff.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_mapselect_sort_diff.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_mapselect_sort_diff.add_element('text', ('Difficulty', 'diff', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_mapselect_sort_diff.add_return_message('sort_diff')
+	#
+	widget_mapselect_sortby = UIWidget()
+	widget_mapselect_sortby.add_element('text', ('sort by:', 'sortby', Vector2(34,RESOLUTION.y-107), font_dict['small_w'], False))
+	#
+	(tl, br) = (Vector2(32, 96), Vector2(312, RESOLUTION.y-112))
+	widget_mapselect_menu = UIWidget()
+	widget_mapselect_menu.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, 14))
+	#
+	(tl, br) = (Vector2(328, 96), Vector2(608, RESOLUTION.y-112))
+	widget_mapselect_mapinfo = UIWidget()
+	widget_mapselect_mapinfo.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, 14))
+	widget_mapselect_mapinfo.add_element('text', ('map-title',    'mapname',   Vector2(348,112), font_dict['large_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('map-author',   'mapauthor', Vector2(348,133), font_dict['small_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('Description:', 'desc',      Vector2(348,160), font_dict['large_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('content',      'mapdesc',   Vector2(348,181), font_dict['small_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('Difficulty:',  'diff',      Vector2(348,304), font_dict['large_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('content',      'mapdiff',   Vector2(424,304), font_dict['large_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('Map size:',    'size',      Vector2(348,328), font_dict['large_w'], False))
+	widget_mapselect_mapinfo.add_element('text', ('content',      'mapsize',   Vector2(424,328), font_dict['large_w'], False))
+	#
+	#
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 176), Vector2(RESOLUTION.x/2 + 96, 208))
+	widget_pausemenu_return = UIWidget()
+	widget_pausemenu_return.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_pausemenu_return.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_pausemenu_return.add_element('text', ('Return to game', 'return', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_pausemenu_return.add_return_message('return')
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 224), Vector2(RESOLUTION.x/2 + 96, 256))
+	widget_pausemenu_menu = UIWidget()
+	widget_pausemenu_menu.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_pausemenu_menu.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_pausemenu_menu.add_element('text', ('Quit to menu', 'menu', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_pausemenu_menu.add_return_message('menu')
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 272), Vector2(RESOLUTION.x/2 + 96, 304))
+	widget_pausemenu_quit = UIWidget()
+	widget_pausemenu_quit.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, 14), mouseover_condition=(True,False))
+	widget_pausemenu_quit.add_element('rect', (Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, 14), mouseover_condition=(False,True))
+	widget_pausemenu_quit.add_element('text', ('Quit to desktop', 'quit', (tl+br)/2 + Vector2(0,1), font_dict['large_w'], True))
+	widget_pausemenu_quit.add_return_message('quit')
 
 	# load sounds
 	my_audio = AudioManager()
@@ -179,6 +273,7 @@ def main(raw_args=None):
 		left_released   = False
 		middle_clicking = False
 		right_clicking  = False
+		escape_pressed  = False
 		for event in pygame.event.get():
 			if event.type == QUIT:
 				pygame.quit()
@@ -195,8 +290,7 @@ def main(raw_args=None):
 				if event.key == K_LSHIFT or event.key == K_RSHIFT:
 					shift_pressed = True
 				if event.key == K_ESCAPE:
-					pygame.quit()
-					sys.exit()
+					escape_pressed = True
 			elif event.type == KEYUP:
 				if event.key == K_LEFT:
 					arrow_left = False
@@ -246,61 +340,112 @@ def main(raw_args=None):
 		#
 		if current_gamestate == GameState.START_MENU:
 			#
-			menu_widgets = [widget_button_play, widget_button_editor, widget_button_options]
+			menu_widgets = [widget_titlepic, widget_title_play, widget_title_editor, widget_title_options]
 			#
 			mw_output_msgs = {}
 			for mw in menu_widgets:
 				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
 				mw.draw(screen)
 			for msg in mw_output_msgs:
-				if msg == 'play' and not transition_alpha:
-					next_gamestate   = GameState.BOUNDING
-					transition_alpha = deque(FADE_SEQUENCE)
+				if not transition_alpha:
+					if msg == 'play':
+						next_gamestate   = GameState.MAP_SELECT
+						transition_alpha = deque(FADE_SEQUENCE)
+					elif msg == 'editor':
+						pass
+					elif msg == 'options':
+						pass
+			#
+			if escape_pressed:
+				pygame.quit()
+				sys.exit()
 
 		#
 		# MAP SELECTION MENU
 		#
 		elif current_gamestate == GameState.MAP_SELECT:
 			#
-			menu_widgets = []
+			menu_widgets = [widget_mapselect_title,
+			                widget_mapselect_menu,
+			                widget_mapselect_sort_filename,
+			                widget_mapselect_sort_author,
+			                widget_mapselect_sort_diff,
+			                widget_mapselect_sortby,
+			                widget_mapselect_mapinfo,
+			                widget_mapselect_play,
+			                widget_mapselect_back]
+			#
+			(fn_print, mapfn, mapname, mapauthor, mapnotes, mapdiff, mapwidth, mapheight, maplives) = map_selection_menu.get_selected_mapinfo()
+			widget_mapselect_mapinfo.text_data['mapname']   = str(mapname)
+			widget_mapselect_mapinfo.text_data['mapauthor'] = str(mapauthor)
+			widget_mapselect_mapinfo.text_data['mapdesc']   = str(mapnotes)
+			widget_mapselect_mapinfo.text_data['mapdiff']   = str(mapdiff)
+			widget_mapselect_mapinfo.text_data['mapsize']   = '{0}x{1}'.format(mapwidth, mapheight)
 			#
 			mw_output_msgs = {}
 			for mw in menu_widgets:
 				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
 				mw.draw(screen)
+			#
+			map_selection_menu.update(mouse_pos_screen, left_clicking)
+			map_selection_menu.draw(screen)
+			#
+			for msg in mw_output_msgs:
+				if not transition_alpha:
+					if msg == 'play':
+						next_gamestate   = GameState.BOUNDING
+						map_fn_to_load   = mapfn
+						transition_alpha = deque(FADE_SEQUENCE)
+					elif msg == 'back':
+						next_gamestate   = GameState.START_MENU
+						transition_alpha = deque(FADE_SEQUENCE)
+					elif msg == 'sort_filename':
+						map_selection_menu.resort(0)
+					elif msg == 'sort_author':
+						map_selection_menu.resort(3)
+					elif msg == 'sort_diff':
+						map_selection_menu.resort(5)
+			#
+			if escape_pressed:
+				next_gamestate   = GameState.START_MENU
+				transition_alpha = deque(FADE_SEQUENCE)
 
 		#
 		# WE ARE BOUNDING.
 		#
-		elif current_gamestate == GameState.BOUNDING:
+		elif current_gamestate == GameState.BOUNDING or current_gamestate == GameState.PAUSE_MENU:
 			#
-			# processing player inputs: moving screen
+			if current_gamestate == GameState.BOUNDING:
+				current_volume = 0.35
+				#
+				# processing player inputs: moving screen
+				#
+				if arrow_left and not arrow_right:
+					WINDOW_OFFSET += SCROLL_X
+				if arrow_right and not arrow_left:
+					WINDOW_OFFSET -= SCROLL_X
+				if arrow_up and not arrow_down:
+					WINDOW_OFFSET += SCROLL_Y
+				if arrow_down and not arrow_up:
+					WINDOW_OFFSET -= SCROLL_Y
+				WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  map_width, 0), 0)
+				WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - map_height, 0), 0)
+				#
+				# processing player inputs: selection + movement orders
+				#
+				if left_released and selection_box[0] != None:
+					if (selection_box[1] - selection_box[0]).length() < 4:
+						my_player.check_selection_click(selection_box[1] - WINDOW_OFFSET)
+					else:
+						my_player.check_selection_box([selection_box[0] - WINDOW_OFFSET, selection_box[1] - WINDOW_OFFSET])
+				#
+				if right_clicking:
+					draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
+					if draw_cursor:
+						my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
 			#
-			if arrow_left and not arrow_right:
-				WINDOW_OFFSET += SCROLL_X
-			if arrow_right and not arrow_left:
-				WINDOW_OFFSET -= SCROLL_X
-			if arrow_up and not arrow_down:
-				WINDOW_OFFSET += SCROLL_Y
-			if arrow_down and not arrow_up:
-				WINDOW_OFFSET -= SCROLL_Y
-			WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  map_width, 0), 0)
-			WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - map_height, 0), 0)
-
-			#
-			# processing player inputs: selection + movement orders
-			#
-			if left_released and selection_box[0] != None:
-				if (selection_box[1] - selection_box[0]).length() < 4:
-					my_player.check_selection_click(selection_box[1] - WINDOW_OFFSET)
-				else:
-					my_player.check_selection_box([selection_box[0] - WINDOW_OFFSET, selection_box[1] - WINDOW_OFFSET])
-			#
-			if right_clicking:
-				draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
-				if draw_cursor:
-					my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
-
+			elif current_gamestate == GameState.PAUSE_MENU:
+				current_volume = 0.12
 			#
 			# update players
 			#
@@ -316,12 +461,12 @@ def main(raw_args=None):
 				for n in ob_gfx:
 					my_animations.start_new_animation(n[0], n[1])
 				for n in ob_snd:
-					my_audio.play_sound(n[0], volume=0.3)
+					my_audio.play_sound(n[0], volume=current_volume)
 				if ob_kill:
 					player_died = my_player.check_kill_boxes(ob_kill)
 					if player_died:
 						my_player.revive_at_pos(ob.revive_coords)
-						my_audio.play_sound('player_death', volume=0.3)
+						my_audio.play_sound('player_death', volume=current_volume)
 				####if current_frame == 300:
 				####	my_player.add_lives(10, ob.revive_coords)
 
@@ -329,21 +474,53 @@ def main(raw_args=None):
 			world_map.draw(screen, WINDOW_OFFSET, draw_tiles=True,
 			                                      draw_obs=False,
 			                                      draw_walkable=False,
-			                                      draw_pathing=True)
+			                                      draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
 			my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=True)
 			my_animations.draw(screen, WINDOW_OFFSET)
 
 			# Draw UI elements --------------------------------------- #
-			if selection_box[0] != None:
-				draw_selection_box(screen, selection_box, Color.SELECTION)
+			if current_gamestate == GameState.BOUNDING:
+				if selection_box[0] != None:
+					draw_selection_box(screen, selection_box, Color.SELECTION)
+			#
 			if my_player.is_selected:
 				widget_playerselected.text_data['lifecount'] = str(my_player.num_lives)
 				widget_playerselected.draw(screen)
+			#
+			if current_gamestate == GameState.BOUNDING:
+				my_cursor.draw(screen)
 
-			# Draw cursor -------------------------------------------- #
-			my_cursor.draw(screen)
+			#
+			# pause menu
+			#
+			if current_gamestate == GameState.PAUSE_MENU:
+				trans_fade.fill(Color.BACKGROUND)
+				trans_fade.set_alpha(128)
+				screen.blit(trans_fade, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
+				#
+				menu_widgets = [widget_pausemenu_return, widget_pausemenu_menu, widget_pausemenu_quit]
+				#
+				mw_output_msgs = {}
+				for mw in menu_widgets:
+					mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+				for msg in mw_output_msgs:
+					if not transition_alpha:
+						if msg == 'return':
+							current_gamestate = GameState.BOUNDING
+						elif msg == 'menu':
+							next_gamestate   = GameState.START_MENU
+							transition_alpha = deque(FADE_SEQUENCE)
+						elif msg == 'quit':
+							pygame.quit()
+							sys.exit()
+				if escape_pressed:
+					current_gamestate = GameState.BOUNDING
+			#
+			elif escape_pressed:
+				current_gamestate = GameState.PAUSE_MENU
 
 		# Draw transition fade ----------------------------------- #
 		if next_gamestate != None:
@@ -353,6 +530,28 @@ def main(raw_args=None):
 			screen.blit(trans_fade, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
 			if current_opacity >= 255:
 				current_gamestate = next_gamestate
+				#
+				if current_gamestate == GameState.MAP_SELECT:
+					all_map_names = [n for n in os.listdir(MAP_DIR) if n[-5:] == '.json']
+					all_map_files = get_file_paths(MAP_DIR, all_map_names)
+					for i in range(len(all_map_names)):
+						all_map_files[i] = (all_map_names[i][:-5], all_map_files[i])
+					map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict)
+				#
+				if current_gamestate == GameState.BOUNDING:
+					if map_fn_to_load != None:
+						#
+						# load world and place player 1
+						#
+						world_map = WorldMap(map_fn_to_load, tile_fns, font_dict)
+						if world_map.p_starts[0] == None:
+							print('No player 1 start found')
+							exit(1)
+						map_width  = world_map.map_width * GRID_SIZE
+						map_height = world_map.map_height * GRID_SIZE
+						my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
+						my_player.num_lives = world_map.init_lives
+						map_fn_to_load = None
 			if not transition_alpha:
 				next_gamestate = None
 
