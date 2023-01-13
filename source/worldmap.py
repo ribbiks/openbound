@@ -7,7 +7,7 @@ from pygame.math import Vector2
 from source.globals     import GRID_SIZE, PLAYER_RADIUS
 from source.misc_gfx    import Color, PF_NODE_RADIUS
 from source.obstacle    import Obstacle
-from source.pathfinding import edge_is_collinear, edge_has_good_incoming_angles, edge_is_traversable
+from source.pathfinding import edge_is_collinear, edge_has_good_incoming_angles, edge_is_traversable, edge_never_turns_into_wall
 from source.pathfinding import get_pathfinding_data, UNIT_RADIUS_EPS
 from source.tile_data   import TILE_DATA
 
@@ -21,6 +21,7 @@ class WorldMap:
 		self.map_name   = json_dat['map_name']
 		self.map_author = json_dat['map_author']
 		self.map_notes  = json_dat['map_notes']
+		self.difficulty = json_dat['difficulty']
 		self.map_width  = json_dat['map_width']
 		self.map_height = json_dat['map_height']
 		self.init_lives = json_dat['starting_lives']
@@ -91,27 +92,33 @@ class WorldMap:
 			for (x,y) in pf_nodes[rid]:
 				pf_nodes_scaled[-1].append(Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2))
 		#
-		filt_count = [0,0,0,0]
+		filt_count = [0,0,0,0,0]
 		pf_edges = []
 		for rid in range(len(pf_nodes)):
-			pf_edges.append({})
+			candidate_edges    = []
+			candidate_edges_ij = []
 			for i in range(len(pf_nodes[rid])):
 				for j in range(i+1,len(pf_nodes[rid])):
 					edge        = [pf_nodes[rid][i], pf_nodes[rid][j]]
 					edge_scaled = [pf_nodes_scaled[rid][i], pf_nodes_scaled[rid][j]]
 					filt_count[0] += 1
-					if not edge_is_collinear(edge, pf_nodedict[rid]):
+					if edge_has_good_incoming_angles(edge, pf_nodedict[rid]):
 						filt_count[1] += 1
-						if edge_has_good_incoming_angles(edge, pf_nodedict[rid]):
+						if edge_never_turns_into_wall(edge, pf_nodedict[rid]):
 							filt_count[2] += 1
 							if edge_is_traversable(edge_scaled, self.wall_map, self.p_loswidth, stepsize=0.9):
 								filt_count[3] += 1
-								if i not in pf_edges[-1]:
-									pf_edges[-1][i] = []
-								if j not in pf_edges[-1]:
-									pf_edges[-1][j] = []
-								pf_edges[-1][i].append(j)
-								pf_edges[-1][j].append(i)
+								candidate_edges.append([pf_nodes[rid][i], pf_nodes[rid][j]])
+								candidate_edges_ij.append((i,j))
+			pf_edges.append({})
+			for i in range(len(pf_nodes[rid])):
+				pf_edges[-1][i] = []
+			for (i,j) in candidate_edges_ij:
+				edge = [pf_nodes[rid][i], pf_nodes[rid][j]]
+				if not edge_is_collinear(edge, pf_nodedict[rid], candidate_edges):
+					filt_count[4] += 1
+					pf_edges[-1][i].append(j)
+					pf_edges[-1][j].append(i)
 		#
 		self.nodes     = pf_nodes_scaled
 		self.edges     = pf_edges

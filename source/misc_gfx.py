@@ -51,7 +51,7 @@ def draw_selection_box(screen, corner_points, color):
 		dx = Vector2(corner_points[1].x - corner_points[0].x, 0)
 		dy = Vector2(0, corner_points[1].y - corner_points[0].y)
 		v  = corner_points[0]
-		pygame.draw.line(screen, color,       v,    v+dx, width=2)
-		pygame.draw.line(screen, color,    v+dx, v+dx+dy, width=2)
-		pygame.draw.line(screen, color, v+dx+dy,    v+dy, width=2)
-		pygame.draw.line(screen, color,    v+dy,       v, width=2)
+		pygame.draw.line(screen, color,       v,    v+dx, width=1)
+		pygame.draw.line(screen, color,    v+dx, v+dx+dy, width=1)
+		pygame.draw.line(screen, color, v+dx+dy,    v+dy, width=1)
+		pygame.draw.line(screen, color,    v+dy,       v, width=1)

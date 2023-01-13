@@ -116,19 +116,28 @@ def get_pathfinding_data(map_dat):
 #
 #
 #
-def edge_is_collinear(edge, node_dict):
-	x0 = edge[0][0]
-	y0 = edge[0][1]
-	dx = edge[1][0] - x0
-	dy = edge[1][1] - y0
-	steps = max(abs(dx), abs(dy))
-	for i in range(1,steps):
-		if ((i * dx) % steps == 0 and (i * dy) % steps == 0):
-			x = int(x0 + (i * dx) / steps)
-			y = int(y0 + (i * dy) / steps)
-			if (x,y) in node_dict:
-				#print(x, y, 'is redundant?')
-				return True
+def edge_is_collinear(edge, node_dict, all_edges, stepsize=0.1):
+	dv = Vector2(edge[1][0] - edge[0][0], edge[1][1] - edge[0][1])
+	nsteps = int(dv.length()/stepsize)-1
+	if nsteps <= 0:
+		return False
+	dv.scale_to_length(stepsize)
+	v = Vector2(edge[0][0] + 0.5, edge[0][1] + 0.5)
+	nodes_we_encountered = []
+	for i in range(nsteps):
+		v += dv
+		(mx,my) = (int(v.x), int(v.y))
+		if (mx,my) in node_dict and (mx,my) not in edge and (mx,my) not in nodes_we_encountered:
+			nodes_we_encountered.append((mx,my))
+	if len(nodes_we_encountered):
+		nodelist = [edge[0]] + nodes_we_encountered + [edge[1]]
+		num_edges_found = 0
+		for i in range(len(nodelist)-1):
+			if [nodelist[i], nodelist[i+1]] in all_edges or [nodelist[i+1], nodelist[i]] in all_edges:
+				num_edges_found += 1
+		print(nodelist, num_edges_found)
+		if num_edges_found == len(nodelist)-1:
+			return True
 	return False
 
 #
@@ -167,17 +176,40 @@ def edge_has_good_incoming_angles(edge, node_dict):
 	return edge1_clear or edge2_clear
 
 #
+# quick check to remove horizontal / vertical edges that never turn towards wall
 #
+def edge_never_turns_into_wall(edge, node_dict):
+	x0 = edge[0][0]
+	y0 = edge[0][1]
+	x1 = edge[1][0]
+	y1 = edge[1][1]
+	is_horiz = False
+	if abs(x1-x0) > abs(y1-y0):
+		is_horiz = True
+	if is_horiz:
+		s_edges = sorted([(x0,y0), (x1,y1)])
+		lr_edge = (node_dict[s_edges[0]], node_dict[s_edges[1]])
+		if lr_edge == (1,2) or lr_edge == (8,4):
+			return False
+	else:
+		s_edges = [(n[1],n[0]) for n in sorted([(y0,x0), (y1,x1)])]
+		lr_edge = (node_dict[s_edges[0]], node_dict[s_edges[1]])
+		if lr_edge == (1,8) or lr_edge == (2,4):
+			return False
+	return True
+
 #
-def edge_is_traversable(edge, map_dat, unit_radius, stepsize=0.9):
+# edges are vector2 of scaled coords
+#
+def edge_is_traversable(edge, map_dat, unit_radius, stepsize=2.0):
 	corner_offsets = [Vector2(-unit_radius, -unit_radius),
 	                  Vector2(-unit_radius,  unit_radius),
 	                  Vector2( unit_radius, -unit_radius),
 	                  Vector2( unit_radius,  unit_radius)]
 	dv = edge[1] - edge[0]
 	nsteps = int(dv.length()/stepsize)-1
-	if nsteps <= 0:
-		return False
+	if nsteps <= 0:	# we're basically on top of the destination
+		return True
 	dv.scale_to_length(stepsize)
 	for co in corner_offsets:
 		v = Vector2(edge[0].x, edge[0].y) + co	# need to make a new vec2 otherwise we modify the original variable (doh)
@@ -281,9 +313,9 @@ def pathfind(world_object, starting_pos, ending_pos):
 		ending_pos = nudged_pos
 	#
 	# do we have a straight line between current position and where we want to go?
-	# -- using an aggressively small stepsize here so that we don't fail LoS checks if start and end are very close
+	# -- using a small stepsize here so that we don't fail LoS checks if start and end are very close
 	#
-	have_straight_line = edge_is_traversable([starting_pos, ending_pos], map_dat, my_unitbuff, stepsize=0.1)
+	have_straight_line = edge_is_traversable([starting_pos, ending_pos], map_dat, my_unitbuff, stepsize=0.9)
 	if have_straight_line:
 		return [ending_pos, starting_pos]
 	#

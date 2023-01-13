@@ -329,10 +329,10 @@ def main(raw_args=None):
 			world_map.draw(screen, WINDOW_OFFSET, draw_tiles=True,
 			                                      draw_obs=False,
 			                                      draw_walkable=False,
-			                                      draw_pathing=False)
+			                                      draw_pathing=True)
 
 			# Foreground objects ------------------------------------- #
-			my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=False)
+			my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=True)
 			my_animations.draw(screen, WINDOW_OFFSET)
 
 			# Draw UI elements --------------------------------------- #
