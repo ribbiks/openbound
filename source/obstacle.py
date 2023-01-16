@@ -49,8 +49,6 @@ class Obstacle:
 		if self.font_loc != None:
 			for text_dat in loc_labels:
 				self.font_loc.render(screen, text_dat[0], text_dat[1], centered=False)
-				#text = self.font_loc.render(text_dat[0], True, Color.LOC_TEXT)
-				#screen.blit(text, text_dat[1])
 		pygame.draw.polygon(screen, Color.OB_STARTBOX, start_p)
 		pygame.draw.polygon(screen, Color.OB_ENDBOX, end_p)
 		pygame.draw.polygon(screen, Color.OB_REVIVE, revive_p)
