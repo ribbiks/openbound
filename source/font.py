@@ -46,6 +46,15 @@ class Font():
 		self.char_width  = {k:self.characters[k].get_width() for k in self.characters.keys()}
 		self.char_width[' '] = self.char_width['A']
 
+	#
+	#
+	#
+	def sanitize(self, text):
+		return ''.join([n for n in text if (n in self.characters or n == ' ')])
+
+	#
+	#
+	#
 	def render(self, screen, text, pos, centered=False, max_width=-1, num_rows=1):
 		x_offset = [Vector2(0,0)]
 		for char in text:
@@ -74,22 +83,24 @@ class Font():
 			split_words = []
 			current_xi  = 0
 			for i,word in enumerate(words):
-				if i == 0 or i == len(words)-1:
+				if i == 0:
 					current_xi += len(word)
 				else:
 					current_xi += len(word) + 1
 				my_word_width = x_offset[current_xi].x - x_offset[current_xi-len(word)].x
 				rows_spanned  = int(my_word_width/max_width)
 				if rows_spanned >= 1:
-					prev   = None
 					prev_j = 0
-					for j in range(current_xi-len(word), current_xi):
-						if prev != None:
-							if int(x_offset[j].x)%max_width < prev:
-								split_words.append(word[prev_j:j])
-								prev_j = j
-						prev = int(x_offset[j].x)%max_width
-					split_words.append(word[prev_j:current_xi])
+					j_off  = current_xi - len(word)
+					starting_off = x_offset[j_off].x
+					for j in range(1,len(word)):
+						row_prev    = int((x_offset[j + j_off - 1].x - starting_off) / max_width)
+						row_current = int((x_offset[j + j_off].x - starting_off) / max_width)
+						if row_current > row_prev:
+							split_words.append(word[prev_j:j])
+							prev_j = j
+					if prev_j < len(word)-1:
+						split_words.append(word[prev_j:])
 				else:
 					split_words.append(word)
 			split_words = [(n, sum([self.char_width[m] for m in n])+len(n)*self.spacing) for n in split_words]

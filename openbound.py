@@ -121,7 +121,7 @@ def main(raw_args=None):
 	# other gfx
 	my_cursor = Cursor(cursor_img_fns)
 	#
-	map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict)
+	map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict['small_w'])
 	#
 	#
 	#
@@ -609,7 +609,7 @@ def main(raw_args=None):
 					all_map_files = get_file_paths(MAP_DIR, all_map_names)
 					for i in range(len(all_map_names)):
 						all_map_files[i] = (all_map_names[i][:-5], all_map_files[i])
-					map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict)
+					map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict['small_w'])
 				#
 				if current_gamestate == GameState.BOUNDING:
 					if map_fn_to_load != None:

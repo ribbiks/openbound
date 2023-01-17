@@ -38,9 +38,8 @@ class TextInput:
 				self.manager.right = ''
 		if self.is_selected:
 			self.manager.update(pygame_events)
-			(str_left, str_right) = (self.manager.left, self.manager.right)
-			self.str_left  = ''.join([n for n in str_left if (n in self.font.characters or n == ' ')])
-			self.str_right = ''.join([n for n in str_right if (n in self.font.characters or n == ' ')])
+			self.str_left  = self.font.sanitize(self.manager.left)
+			self.str_right = self.font.sanitize(self.manager.right)
 		if self.cursor_delay > 0:
 			self.cursor_delay -= 1
 		else:
