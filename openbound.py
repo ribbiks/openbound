@@ -21,6 +21,7 @@ from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
 from source.selectionmenu    import SelectionMenu
+from source.textinput        import TextInput
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
@@ -30,14 +31,16 @@ GAME_VERS = 'OpenBound v0.1'
 FRAMERATE = 23.8095
 
 class GameState:
-	START_MENU   = 0
-	MAP_SELECT   = 1
-	BOUNDING     = 2
-	PAUSE_MENU   = 3
-	ED_TERRAIN   = 4
-	ED_UNITS     = 5
-	ED_LOCATIONS = 6
-	ED_OBSTACLE  = 7
+	START_MENU   = 0	#
+	MAP_SELECT   = 1	# select a map to play
+	MAP_SELECT_E = 2	# select a map to edit
+	BOUNDING     = 3	#
+	PAUSE_MENU   = 4	# pause screen while bounding
+	PAUSE_MENU_E = 5	# fade screen when you select editor from main menu --> create new map or edit existing
+	EDITOR_PROPERTIES = 6
+	EDITOR_TERRAIN    = 7
+	EDITOR_PLACE_OB   = 8
+	EDITOR_EDIT_OB    = 9
 
 UPSCALE_2X = True
 
@@ -238,6 +241,37 @@ def main(raw_args=None):
 	widget_pausemenu_quit.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
 	widget_pausemenu_quit.add_text((tl+br)/2 + Vector2(0,1), 'Quit to desktop', 'quit', font_dict['large_w'], is_centered=True)
 	widget_pausemenu_quit.add_return_message('quit')
+	#
+	#
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 144), Vector2(RESOLUTION.x/2 + 96, 176))
+	widget_editmenu_new = UIWidget()
+	widget_editmenu_new.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmenu_new.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmenu_new.add_text((tl+br)/2 + Vector2(0,1), 'New', 'new', font_dict['large_w'], is_centered=True)
+	widget_editmenu_new.add_return_message('new')
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 192), Vector2(RESOLUTION.x/2 + 96, 224))
+	widget_editmenu_load = UIWidget()
+	widget_editmenu_load.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmenu_load.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmenu_load.add_text((tl+br)/2 + Vector2(0,1), 'Load', 'load', font_dict['large_w'], is_centered=True)
+	widget_editmenu_load.add_return_message('load')
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 240), Vector2(RESOLUTION.x/2 + 96, 272))
+	widget_editmenu_back = UIWidget()
+	widget_editmenu_back.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmenu_back.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmenu_back.add_text((tl+br)/2 + Vector2(0,1), 'Back', 'back', font_dict['large_w'], is_centered=True)
+	widget_editmenu_back.add_return_message('back')
+	#
+	#
+	#
+	(tl, br) = (Vector2(128, 64), Vector2(256, 80))
+	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['large_w'], char_offset=Vector2(5,2), num_rows=2)
+	#
+	(tl, br) = (Vector2(128, 96), Vector2(256, 112))
+	textinput_author = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'])
 
 	# load sounds
 	my_audio = AudioManager()
@@ -275,7 +309,8 @@ def main(raw_args=None):
 		middle_clicking = False
 		right_clicking  = False
 		escape_pressed  = False
-		for event in pygame.event.get():
+		pygame_events   = pygame.event.get()
+		for event in pygame_events:
 			if event.type == QUIT:
 				pygame.quit()
 				sys.exit()
@@ -339,27 +374,59 @@ def main(raw_args=None):
 		#
 		# STARTING MENU
 		#
-		if current_gamestate == GameState.START_MENU:
+		if current_gamestate == GameState.START_MENU or current_gamestate == GameState.PAUSE_MENU_E:
 			#
 			menu_widgets = [widget_titlepic, widget_title_play, widget_title_editor, widget_title_options]
-			#
-			mw_output_msgs = {}
 			for mw in menu_widgets:
-				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
 				mw.draw(screen)
-			for msg in mw_output_msgs:
-				if not transition_alpha:
-					if msg == 'play':
-						next_gamestate   = GameState.MAP_SELECT
-						transition_alpha = deque(FADE_SEQUENCE)
-					elif msg == 'editor':
-						pass
-					elif msg == 'options':
-						pass
 			#
-			if escape_pressed:
-				pygame.quit()
-				sys.exit()
+			textinput_mapname.draw(screen)
+			textinput_mapname.update(mouse_pos_screen, left_clicking, pygame_events)
+			textinput_author.draw(screen)
+			textinput_author.update(mouse_pos_screen, left_clicking, pygame_events)
+			#
+			if current_gamestate == GameState.START_MENU:
+				mw_output_msgs = {}
+				for mw in menu_widgets:
+					mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+				for msg in mw_output_msgs:
+					if not transition_alpha:
+						if msg == 'play':
+							next_gamestate   = GameState.MAP_SELECT
+							transition_alpha = deque(FADE_SEQUENCE)
+						elif msg == 'editor':
+							current_gamestate = GameState.PAUSE_MENU_E
+						elif msg == 'options':
+							pass
+				if escape_pressed:
+					pygame.quit()
+					sys.exit()
+
+			#
+			# MENU: CREATE NEW MAP OR LOAD EXISTING MAP TO EDIT
+			#
+			elif current_gamestate == GameState.PAUSE_MENU_E:
+				trans_fade.fill(Color.BACKGROUND)
+				trans_fade.set_alpha(128)
+				screen.blit(trans_fade, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
+				#
+				menu_widgets_2 = [widget_editmenu_new, widget_editmenu_load, widget_editmenu_back]
+				#
+				mw_output_msgs = {}
+				for mw in menu_widgets_2:
+					mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+				for msg in mw_output_msgs:
+					if not transition_alpha:
+						if msg == 'new':
+							pass
+						elif msg == 'load':
+							next_gamestate   = GameState.MAP_SELECT_E
+							transition_alpha = deque(FADE_SEQUENCE)
+						elif msg == 'back':
+							current_gamestate = GameState.START_MENU
+				if escape_pressed:
+					current_gamestate = GameState.START_MENU
 
 		#
 		# MAP SELECTION MENU
@@ -499,7 +566,7 @@ def main(raw_args=None):
 				my_cursor.draw(screen)
 
 			#
-			# pause menu
+			# PAUSE MENU
 			#
 			if current_gamestate == GameState.PAUSE_MENU:
 				trans_fade.fill(Color.BACKGROUND)

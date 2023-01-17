@@ -20,7 +20,7 @@ TEXT_CHARACTER_COLOR   = (  0,   0,   0, 255)
 class Font():
 	def __init__(self, path, color, scalar=1):
 		self.spacing = scalar
-		self.character_order = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','.','-',',',':','+','\'','!','?','0','1','2','3','4','5','6','7','8','9','(',')','/','_','=','\\','[',']','*','"','<','>',';']
+		self.character_order = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','.','-',',',':','+','\'','!','?','0','1','2','3','4','5','6','7','8','9','(',')','/','_','=','\\','[',']','*','"','<','>',';','|']
 		font_img = pygame.image.load(path).convert_alpha()
 		current_char_width = 0
 		character_count    = 0
@@ -46,7 +46,7 @@ class Font():
 		self.char_width  = {k:self.characters[k].get_width() for k in self.characters.keys()}
 		self.char_width[' '] = self.char_width['A']
 
-	def render(self, screen, text, pos, centered=True, max_width=-1, num_rows=1):
+	def render(self, screen, text, pos, centered=False, max_width=-1, num_rows=1):
 		x_offset = [Vector2(0,0)]
 		for char in text:
 			x_offset.append(x_offset[-1] + Vector2(self.char_width[char] + self.spacing, 0))
@@ -96,7 +96,9 @@ class Font():
 			words_by_row = [[]]
 			current_row_width = 0
 			for (word, width) in split_words:
-				if current_row_width + width + self.char_width[' '] >= max_width:
+				if current_row_width == 0:
+					words_by_row[-1].append(word)
+				elif current_row_width + width + self.char_width[' '] > max_width:
 					words_by_row.append([word])
 					current_row_width = 0
 				else:
@@ -111,9 +113,13 @@ class Font():
 				for char in text_row:
 					x_offset.append(x_offset[-1] + Vector2(self.char_width[char] + self.spacing, 0))
 					y_offset.append(Vector2(0, (self.char_height + self.spacing) * i))
+				# for centering multi-row text, lets center each row without affecting y-offset
+				centered_adj = Vector2(0,0)
+				if centered:
+					centered_adj = Vector2(int(x_offset[-1].x/2 - max_width/2), 0)
 				for j,char in enumerate(text_row):
 					if char != ' ':
-						screen.blit(self.characters[char], pos + x_offset[j] + y_offset[j])
+						screen.blit(self.characters[char], pos + x_offset[j] + y_offset[j] - centered_adj)
 		#
 		else:
 			centered_adj = Vector2(0,0)

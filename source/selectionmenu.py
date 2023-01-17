@@ -73,7 +73,7 @@ class SelectionMenu:
 	def draw(self, screen):
 		if not self.content:
 			offset = Vector2(4,4)
-			self.font_dict['small_w'].render(screen, 'no maps found...', self.pos + offset, centered=False)
+			self.font_dict['small_w'].render(screen, 'no maps found...', self.pos + offset)
 		else:
 			tl = self.pos + Vector2(0, (self.index - self.current_range[0]) * ROW_HEIGHT)
 			br = self.pos + Vector2(COL_WIDTH, (self.index - self.current_range[0] + 1) * ROW_HEIGHT)
@@ -82,4 +82,4 @@ class SelectionMenu:
 			#
 			for i in range(self.current_range[0], self.current_range[1]):
 				offset = Vector2(4, (i - self.current_range[0]) * ROW_HEIGHT + 5)
-				self.font_dict['small_w'].render(screen, self.content[i][0], self.pos + offset, centered=False)
+				self.font_dict['small_w'].render(screen, self.content[i][0], self.pos + offset)
