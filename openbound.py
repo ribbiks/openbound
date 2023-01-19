@@ -20,8 +20,8 @@ from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
-from source.selectionmenu    import SelectionMenu
-from source.textinput        import TextInput
+from source.selectionmenu    import MapMenu, UnitMenu
+from source.textinput        import DigitInput, TextInput
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
@@ -41,6 +41,7 @@ class GameState:
 	EDITOR_TERRAIN    = 7
 	EDITOR_PLACE_OB   = 8
 	EDITOR_EDIT_OB    = 9
+	EDITOR_SAVE       = 10
 
 UPSCALE_2X = True
 
@@ -75,13 +76,12 @@ def main(raw_args=None):
 	tile_keys = sorted(TILE_DATA.keys())
 	tile_fns  = get_file_paths(TILE_DIR, [TILE_DATA[n][2] for n in tile_keys])
 	#
-	MAPSELECT_MENU_POS = Vector2(48, 112)
-	all_map_files      = []
-	map_fn_to_load     = None
-	world_map          = None
-	map_width          = None
-	map_height         = None
-	my_player          = None
+	all_map_files  = []
+	map_fn_to_load = None
+	world_map      = None
+	map_width      = None
+	map_height     = None
+	my_player      = None
 
 	#
 	# initialize pygame
@@ -98,6 +98,7 @@ def main(raw_args=None):
 	else:
 		screen = pygame.display.set_mode(size=RESOLUTION, flags=disp_flags, depth=0, display=0, vsync=0)
 	trans_fade = pygame.Surface(RESOLUTION)
+	edbar_fade = pygame.Surface(Vector2(RESOLUTION.x, 128))
 	main_clock = pygame.time.Clock()
 	#pygame.event.set_grab(True)
 
@@ -121,7 +122,7 @@ def main(raw_args=None):
 	# other gfx
 	my_cursor = Cursor(cursor_img_fns)
 	#
-	map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict['small_w'])
+	map_selection_menu = None
 	#
 	#
 	#
@@ -206,6 +207,7 @@ def main(raw_args=None):
 	(tl, br) = (Vector2(32, 96), Vector2(312, RESOLUTION.y-112))
 	widget_mapselect_menu = UIWidget()
 	widget_mapselect_menu.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=14)
+	MAPSELECT_MENU_POS = Vector2(48, 112)
 	#
 	(tl, br) = (Vector2(328, 96), Vector2(608, RESOLUTION.y-112))
 	widget_mapselect_mapinfo = UIWidget()
@@ -267,11 +269,137 @@ def main(raw_args=None):
 	#
 	#
 	#
-	(tl, br) = (Vector2(128, 64), Vector2(256, 80))
-	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['large_w'], char_offset=Vector2(5,2), num_rows=2)
+	tl = Vector2(148, 368 + 5)
+	widget_propertiesmode_text = UIWidget()
+	widget_propertiesmode_text.add_text(Vector2(tl.x, tl.y),     'Title:',           't1', font_dict['large_w'])
+	widget_propertiesmode_text.add_text(Vector2(tl.x+254, tl.y), 'Map description:', 't2', font_dict['large_w'])
+	tl = Vector2(148, 392 + 5)
+	widget_propertiesmode_text.add_text(Vector2(tl.x, tl.y), 'Author:', 't3', font_dict['large_w'])
+	tl = Vector2(148, 416 + 5)
+	widget_propertiesmode_text.add_text(Vector2(tl.x, tl.y),     'Lives:', 't4', font_dict['large_w'])
+	widget_propertiesmode_text.add_text(Vector2(tl.x+108, tl.y), 'Size:',  't5', font_dict['large_w'])
+	widget_propertiesmode_text.add_text(Vector2(tl.x+193, tl.y), 'x',      't6', font_dict['large_w'])
+	tl = Vector2(148, 440 + 5)
+	widget_propertiesmode_text.add_text(Vector2(tl.x, tl.y),     'Rating:', 't7', font_dict['large_w'])
+	widget_propertiesmode_text.add_text(Vector2(tl.x+108, tl.y), 'Start:',  't8', font_dict['large_w'])
+	widget_propertiesmode_text.add_text(Vector2(tl.x+193, tl.y), 'x',       't9', font_dict['large_w'])
 	#
-	(tl, br) = (Vector2(128, 96), Vector2(256, 112))
-	textinput_author = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'])
+	VBUFF    = 2
+	(tl, br) = (Vector2(208, 368 + VBUFF), Vector2(384, 392 - VBUFF))
+	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=27)
+	#
+	(tl, br) = (Vector2(208, 392 + VBUFF), Vector2(384, 416 - VBUFF))
+	textinput_author      = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=27)
+	textinput_description = TextInput(Vector2(tl.x+192, tl.y), Vector2(br.x+176, br.y+48), font_dict['small_w'], char_offset=Vector2(4,4), num_rows=7, max_chars=172)
+	#
+	(tl, br) = (Vector2(208, 416 + VBUFF), Vector2(240, 440 - VBUFF))
+	digitinput_lives    = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x, br.y),     font_dict['small_w'], (0,9999), char_offset=Vector2(6,7), default_val=100, max_chars=4)
+	digitinput_mapsizex = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (16,512), char_offset=Vector2(6,7), default_val=32,  max_chars=3)
+	digitinput_mapsizey = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (16,512), char_offset=Vector2(6,7), default_val=32,  max_chars=3)
+	#
+	(tl, br) = (Vector2(208, 440 + VBUFF), Vector2(240, 464 - VBUFF))
+	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x, br.y),     font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=5,  max_chars=2)
+	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (0,512), char_offset=Vector2(6,7), default_val=64, max_chars=3)
+	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (0,512), char_offset=Vector2(6,7), default_val=64, max_chars=3)
+	#
+	#
+	#
+	(tl, br) = (Vector2(16, RESOLUTION.y - 112 + 1), Vector2(128, RESOLUTION.y - 88 - 1))
+	widget_editmode_properties = UIWidget()
+	widget_editmode_properties.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_properties.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_properties.add_text((tl+br)/2 + Vector2(1,1), 'Map properties', 'properties', font_dict['large_w'], is_centered=True)
+	widget_editmode_properties.add_return_message('change_edit_mode_to_properties')
+	#
+	(tl, br) = (Vector2(16, RESOLUTION.y - 88 + 1), Vector2(128, RESOLUTION.y - 64 - 1))
+	widget_editmode_terrain = UIWidget()
+	widget_editmode_terrain.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_terrain.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_terrain.add_text((tl+br)/2 + Vector2(1,1), 'Terrain', 'terrain', font_dict['large_w'], is_centered=True)
+	widget_editmode_terrain.add_return_message('change_edit_mode_to_terrain')
+	#
+	(tl, br) = (Vector2(16, RESOLUTION.y - 64 + 1), Vector2(128, RESOLUTION.y - 40 - 1))
+	widget_editmode_placeob = UIWidget()
+	widget_editmode_placeob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_placeob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_placeob.add_text((tl+br)/2 + Vector2(1,1), 'Place Obstacle', 'placeob', font_dict['large_w'], is_centered=True)
+	widget_editmode_placeob.add_return_message('change_edit_mode_to_placeob')
+	#
+	(tl, br) = (Vector2(16, RESOLUTION.y - 40 + 1), Vector2(128, RESOLUTION.y - 16 - 1))
+	widget_editmode_editob = UIWidget()
+	widget_editmode_editob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_editob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_editob.add_text((tl+br)/2 + Vector2(1,1), 'Edit Obstacle', 'editob', font_dict['large_w'], is_centered=True)
+	widget_editmode_editob.add_return_message('change_edit_mode_to_editob')
+	#
+	(tl, br) = (Vector2(576, RESOLUTION.y - 112 + 4 + 1), Vector2(624, RESOLUTION.y - 88 + 4 - 1))
+	widget_editmode_undo = UIWidget()
+	widget_editmode_undo.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_undo.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_undo.add_text((tl+br)/2 + Vector2(1,1), 'Undo', 'undo', font_dict['large_w'], is_centered=True)
+	widget_editmode_undo.add_return_message('undo')
+	#
+	(tl, br) = (Vector2(576, RESOLUTION.y - 88 + 4 + 1), Vector2(624, RESOLUTION.y - 64 + 4 - 1))
+	widget_editmode_redo = UIWidget()
+	widget_editmode_redo = UIWidget()
+	widget_editmode_redo.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_redo.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_redo.add_text((tl+br)/2 + Vector2(1,1), 'Redo', 'redo', font_dict['large_w'], is_centered=True)
+	widget_editmode_redo.add_return_message('redo')
+	#
+	(tl, br) = (Vector2(576, RESOLUTION.y - 64 + 4 + 1), Vector2(624, RESOLUTION.y - 40 + 4 - 1))
+	widget_editmode_test = UIWidget()
+	widget_editmode_test = UIWidget()
+	widget_editmode_test.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editmode_test.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editmode_test.add_text((tl+br)/2 + Vector2(1,1), 'Test', 'test', font_dict['large_w'], is_centered=True)
+	widget_editmode_test.add_return_message('test')
+	#
+	#
+	#
+	(tl, br) = (Vector2(144, RESOLUTION.y - 112), Vector2(224, RESOLUTION.y-16))
+	widget_unitselect_bg = UIWidget()
+	widget_unitselect_bg.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	#
+	unit_selection_text = UIWidget()
+	unit_selection_text.add_text(tl + Vector2(5,5), 'Explosion unit:', 'expunit', font_dict['small_w'])
+	#
+	unit_selection_menu = UnitMenu(Vector2(160, RESOLUTION.y - 96), ['overlord', 'scourge'], font_dict['small_w'],    num_rows=6, row_height=16, col_width=64)
+	#
+	(tl, br) = (Vector2(240, RESOLUTION.y - 112), Vector2(320, RESOLUTION.y-16))
+	widget_wallselect_bg = UIWidget()
+	widget_wallselect_bg.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	#
+	wall_selection_text = UIWidget()
+	wall_selection_text.add_text(tl + Vector2(5,5), 'Wall unit:', 'wallunit', font_dict['small_w'])
+	#
+	wall_selection_menu = UnitMenu(Vector2(256, RESOLUTION.y - 96), ['crystal', 'psi emitter'], font_dict['small_w'], num_rows=6, row_height=16, col_width=64)
+	#
+	#
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 144), Vector2(RESOLUTION.x/2 + 96, 176))
+	widget_editpause_save = UIWidget()
+	widget_editpause_save.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editpause_save.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editpause_save.add_text((tl+br)/2 + Vector2(0,1), 'Save map', 'save', font_dict['large_w'], is_centered=True)
+	widget_editpause_save.add_return_message('save')
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 192), Vector2(RESOLUTION.x/2 + 96, 224))
+	widget_editpause_return = UIWidget()
+	widget_editpause_return.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editpause_return.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editpause_return.add_text((tl+br)/2 + Vector2(0,1), 'Return to editor', 'return', font_dict['large_w'], is_centered=True)
+	widget_editpause_return.add_return_message('return')
+	#
+	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 240), Vector2(RESOLUTION.x/2 + 96, 272))
+	widget_editpause_quit = UIWidget()
+	widget_editpause_quit.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_editpause_quit.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_editpause_quit.add_text((tl+br)/2 + Vector2(0,1), 'Quit to main menu', 'quit', font_dict['large_w'], is_centered=True)
+	widget_editpause_quit.add_return_message('quit')
+	#
+	#
+	#
 
 	# load sounds
 	my_audio = AudioManager()
@@ -286,9 +414,11 @@ def main(raw_args=None):
 	TIME_SPENT    = [0.]
 	selection_box = [None, None]
 
-	#
+	# misc gamestate stuff
 	next_gamestate   = None
 	transition_alpha = deque([])
+	editor_states    = [GameState.EDITOR_PROPERTIES, GameState.EDITOR_TERRAIN, GameState.EDITOR_PLACE_OB, GameState.EDITOR_EDIT_OB, GameState.EDITOR_SAVE]
+	previous_editor_state = None
 
 	# inputs that can be held down across frames
 	shift_pressed = False
@@ -380,11 +510,6 @@ def main(raw_args=None):
 			for mw in menu_widgets:
 				mw.draw(screen)
 			#
-			textinput_mapname.draw(screen)
-			textinput_mapname.update(mouse_pos_screen, left_clicking, pygame_events)
-			textinput_author.draw(screen)
-			textinput_author.update(mouse_pos_screen, left_clicking, pygame_events)
-			#
 			if current_gamestate == GameState.START_MENU:
 				mw_output_msgs = {}
 				for mw in menu_widgets:
@@ -412,14 +537,15 @@ def main(raw_args=None):
 				#
 				menu_widgets_2 = [widget_editmenu_new, widget_editmenu_load, widget_editmenu_back]
 				#
-				mw_output_msgs = {}
+				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
-					mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
 					mw.draw(screen)
-				for msg in mw_output_msgs:
+				for msg in mw_output_msgs_2:
 					if not transition_alpha:
 						if msg == 'new':
-							pass
+							next_gamestate   = GameState.EDITOR_PROPERTIES
+							transition_alpha = deque(FADE_SEQUENCE)
 						elif msg == 'load':
 							next_gamestate   = GameState.MAP_SELECT_E
 							transition_alpha = deque(FADE_SEQUENCE)
@@ -443,7 +569,7 @@ def main(raw_args=None):
 			                widget_mapselect_play,
 			                widget_mapselect_back]
 			#
-			(fn_print, mapfn, mapname, mapauthor, mapnotes, mapdiff, mapwidth, mapheight, maplives) = map_selection_menu.get_selected_mapinfo()
+			(fn_print, mapfn, mapname, mapauthor, mapnotes, mapdiff, mapwidth, mapheight, maplives) = map_selection_menu.get_selected_content(sanitize=True)
 			widget_mapselect_mapinfo.text_data['mapname']   = str(mapname)
 			widget_mapselect_mapinfo.text_data['mapauthor'] = str(mapauthor)
 			widget_mapselect_mapinfo.text_data['mapdesc']   = str(mapnotes)
@@ -459,7 +585,6 @@ def main(raw_args=None):
 				map_selection_menu.increase_index()
 			elif arrow_up and not arrow_down:
 				map_selection_menu.decrease_index()
-			#
 			map_selection_menu.update(mouse_pos_screen, left_clicking)
 			map_selection_menu.draw(screen)
 			#
@@ -595,6 +720,161 @@ def main(raw_args=None):
 			elif escape_pressed:
 				current_gamestate = GameState.PAUSE_MENU
 
+		############################################################
+		#                                                          #
+		#   MAP EDITOR                                             #
+		#                                                          #
+		############################################################
+		elif current_gamestate in editor_states:
+			#
+			edbar_fade.fill(Color.BACKGROUND)
+			edbar_fade.set_alpha(128)
+			screen.blit(edbar_fade, (0, RESOLUTION.y - 127), special_flags=pygame.BLEND_ALPHA_SDL2)
+			#
+			menu_widgets = [widget_editmode_properties,
+			                widget_editmode_terrain,
+			                widget_editmode_placeob,
+			                widget_editmode_editob,
+			                widget_editmode_undo,
+			                widget_editmode_redo,
+			                widget_editmode_test]
+			#
+			mw_output_msgs = {}
+			for mw in menu_widgets:
+				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
+			# keep mode buttons highlighted based on what mode we're in
+			if current_gamestate == GameState.EDITOR_PROPERTIES:
+				menu_widgets[0].is_mouseover = True
+			elif current_gamestate == GameState.EDITOR_TERRAIN:
+				menu_widgets[1].is_mouseover = True
+			elif current_gamestate == GameState.EDITOR_PLACE_OB:
+				menu_widgets[2].is_mouseover = True
+			elif current_gamestate == GameState.EDITOR_EDIT_OB:
+				menu_widgets[3].is_mouseover = True
+			#
+			for mw in menu_widgets:
+				mw.draw(screen)
+
+			#
+			# MAP PROPERTIES MODE
+			#
+			if current_gamestate == GameState.EDITOR_PROPERTIES:
+				#
+				textinput_widgets = [textinput_mapname,
+				                     textinput_author,
+				                     textinput_description,
+				                     digitinput_lives,
+				                     digitinput_rating,
+				                     digitinput_mapsizex,
+				                     digitinput_mapsizey,
+				                     digitinput_playerx,
+				                     digitinput_playery]
+				#
+				for tw in textinput_widgets:
+					tw.draw(screen)
+				for tw in textinput_widgets:
+					tw.update(mouse_pos_screen, left_clicking, pygame_events)
+				#
+				menu_widgets_2 = [widget_propertiesmode_text]
+				#
+				mw_output_msgs_2 = {}
+				for mw in menu_widgets_2:
+					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+
+			#
+			# EDIT OB MODE
+			#
+			if current_gamestate == GameState.EDITOR_EDIT_OB:
+				#
+				menu_widgets_2 = [widget_unitselect_bg,
+				                  widget_wallselect_bg,
+				                  unit_selection_text,
+				                  wall_selection_text]
+				#
+				mw_output_msgs_2 = {}
+				for mw in menu_widgets_2:
+					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+				#
+				if arrow_down and not arrow_up:
+					unit_selection_menu.increase_index()
+					wall_selection_menu.increase_index()
+				elif arrow_up and not arrow_down:
+					unit_selection_menu.decrease_index()
+					wall_selection_menu.decrease_index()
+				u_bool = unit_selection_menu.update(mouse_pos_screen, left_clicking)
+				w_bool = wall_selection_menu.update(mouse_pos_screen, left_clicking)
+				if u_bool:
+					unit_selection_menu.is_selected = True
+					wall_selection_menu.is_selected = False
+				elif w_bool:
+					unit_selection_menu.is_selected = False
+					wall_selection_menu.is_selected = True
+				#
+				unit_msg = unit_selection_menu.get_selected_content()
+				wall_msg = wall_selection_menu.get_selected_content()
+				#
+				unit_selection_menu.draw(screen)
+				wall_selection_menu.draw(screen)
+
+			#
+			# EDITOR PAUSE MENU
+			#
+			if current_gamestate == GameState.EDITOR_SAVE:
+				trans_fade.fill(Color.BACKGROUND)
+				trans_fade.set_alpha(128)
+				screen.blit(trans_fade, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
+				#
+				menu_widgets_2 = [widget_editpause_save, widget_editpause_return, widget_editpause_quit]
+				#
+				mw_output_msgs_2 = {}
+				for mw in menu_widgets_2:
+					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+				for msg in mw_output_msgs_2:
+					if not transition_alpha:
+						if msg == 'save':
+							pass
+						elif msg == 'return':
+							current_gamestate     = previous_editor_state
+							previous_editor_state = GameState.EDITOR_SAVE
+						elif msg == 'quit':
+							next_gamestate   = GameState.START_MENU
+							transition_alpha = deque(FADE_SEQUENCE)
+				if escape_pressed:
+					current_gamestate     = previous_editor_state
+					previous_editor_state = GameState.EDITOR_SAVE
+
+			#
+			# change editor mode
+			#
+			changing_editor_state = False
+			for msg in mw_output_msgs:
+				if not transition_alpha:
+					if msg == 'change_edit_mode_to_properties' and current_gamestate != GameState.EDITOR_PROPERTIES:
+						current_gamestate     = GameState.EDITOR_PROPERTIES
+						changing_editor_state = True
+					elif msg == 'change_edit_mode_to_terrain' and current_gamestate != GameState.EDITOR_TERRAIN:
+						current_gamestate     = GameState.EDITOR_TERRAIN
+						changing_editor_state = True
+					elif msg == 'change_edit_mode_to_placeob' and current_gamestate != GameState.EDITOR_PLACE_OB:
+						current_gamestate     = GameState.EDITOR_PLACE_OB
+						changing_editor_state = True
+					elif msg == 'change_edit_mode_to_editob' and current_gamestate != GameState.EDITOR_EDIT_OB:
+						current_gamestate     = GameState.EDITOR_EDIT_OB
+						changing_editor_state = True
+			if escape_pressed and previous_editor_state != GameState.EDITOR_SAVE:
+				previous_editor_state = current_gamestate
+				current_gamestate     = GameState.EDITOR_SAVE
+				changing_editor_state = True
+			#
+			if changing_editor_state:
+				# TODO: deselect all interactable objects
+				pass
+			if previous_editor_state == GameState.EDITOR_SAVE:
+				previous_editor_state = current_gamestate
+
 		# Draw transition fade ----------------------------------- #
 		if next_gamestate != None:
 			current_opacity = transition_alpha.popleft()
@@ -609,7 +889,7 @@ def main(raw_args=None):
 					all_map_files = get_file_paths(MAP_DIR, all_map_names)
 					for i in range(len(all_map_names)):
 						all_map_files[i] = (all_map_names[i][:-5], all_map_files[i])
-					map_selection_menu = SelectionMenu(all_map_files, MAPSELECT_MENU_POS, font_dict['small_w'])
+					map_selection_menu = MapMenu(MAPSELECT_MENU_POS, all_map_files, font_dict['small_w'], num_rows=15, row_height=16, col_width=248)
 				#
 				if current_gamestate == GameState.BOUNDING:
 					if map_fn_to_load != None:

@@ -5,7 +5,7 @@ from pygame.math import Vector2
 
 from typing import List, Callable
 
-from source.geometry import point_in_box_excl
+from source.geometry import point_in_box_excl, value_clamp
 from source.misc_gfx import Color
 
 class TextInput:
@@ -55,18 +55,53 @@ class TextInput:
 		#
 		if self.is_selected:
 			if self.draw_cursor:
-				self.font.render(screen, self.str_left + '|' + self.str_right, self.tl + self.char_offset, max_width=self.max_width, num_rows=self.num_rows)
+				self.font.render(screen, self.str_left + '|' + self.str_right, self.tl + self.char_offset, max_width=self.max_width-self.char_offset.x, num_rows=self.num_rows)
 			else:
-				self.font.render(screen, self.str_left + ' ' + self.str_right, self.tl + self.char_offset, max_width=self.max_width, num_rows=self.num_rows)
+				self.font.render(screen, self.str_left + ' ' + self.str_right, self.tl + self.char_offset, max_width=self.max_width-self.char_offset.x, num_rows=self.num_rows)
 		else:
 			self.font.render(screen, self.str_left, self.tl + self.char_offset, max_width=self.max_width, num_rows=self.num_rows)
+
+#
+#
+#
+class DigitInput(TextInput):
+	def __init__(self, tl, br, font, value_bounds, default_val=None, max_chars=3, char_offset=Vector2(5,5), num_rows=1):
+		#
+		super().__init__(tl, br, font,
+		                 max_chars=max_chars,
+		                 char_offset=char_offset,
+		                 num_rows=num_rows)
+		self.manager = TextInputManager(validator = lambda input: (len(input) <= max_chars and input.isdigit()) or len(input) == 0)
+		self.bounds  = value_bounds
+		if default_val != None:
+			self.value = default_val
+			self.str_left = str(self.value)
+		else:
+			self.value = self.bounds[0]
+			self.str_left = str(self.value)
+
+	def update(self, mousepos, activation, pygame_events):
+		#
+		super().update(mousepos, activation, pygame_events)
+		#
+		if not self.is_selected:
+			if self.str_left:
+				self.value    = value_clamp(int(self.str_left), self.bounds[0], self.bounds[1])
+				self.str_left = str(self.value)
+				self.manager.left  = self.str_left[:]
+				self.manager.right = ''
+			else:
+				self.value = self.bounds[0]
+				self.str_left = str(self.value)
+
+	def get_value(self):
+		return self.value
 
 """
 Copyright 2021, Silas Gyger, silasgyger@gmail.com, All rights reserved.
 
 Borrowed from https://github.com/Nearoo/pygame-text-input under the MIT license.
 """
-
 class TextInputManager:
 	'''
 	Keeps track of text inputted, cursor position, etc.
