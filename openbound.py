@@ -371,13 +371,14 @@ def main(raw_args=None):
 	#
 	(tl, br) = (Vector2(148, 368 + 5), Vector2(224, RESOLUTION.y-16))
 	widget_explosionsmode_text = UIWidget()
-	widget_explosionsmode_text.add_rect(Vector2(tl.x, tl.y + 20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
-	widget_explosionsmode_text.add_text(Vector2(tl.x + 2, tl.y), 'Event type:', 't1', font_dict['large_w'])
+	widget_explosionsmode_text.add_rect(Vector2(tl.x, tl.y+20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_explosionsmode_text.add_text(Vector2(tl.x+2, tl.y), 'Event type:', 't1', font_dict['large_w'])
 	event_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), ['explosion', 'add wall', 'remove wall', 'teleport'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
 	widget_explosionsmode_submenu_explosion = UIWidget()
-	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y + 20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
-	unit_selection_menu = UnitMenu(Vector2(256, RESOLUTION.y - 96), ['crystal', 'psi emitter'], font_dict['small_w'], num_rows=6, row_height=16, col_width=64)
+	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y+20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_explosionsmode_submenu_explosion.add_text(Vector2(tl.x+98, tl.y), 'Unit:', 't1', font_dict['large_w'])
+	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
 	#
 	#
@@ -714,7 +715,7 @@ def main(raw_args=None):
 		elif current_gamestate in editor_states:
 			#
 			any_selectionmenu_selected = any([event_selection_menu.is_selected,
-			                                  unit_selection_menu.is_selected])
+			                                  unit_selection_menu_explosion.is_selected])
 			any_textinput_selected = any([textinput_mapname.is_selected,
 			                              textinput_author.is_selected,
 			                              textinput_description.is_selected,
@@ -806,8 +807,7 @@ def main(raw_args=None):
 			#
 			if current_gamestate == GameState.EDITOR_EXPLOSIONS:
 				#
-				menu_widgets_2 = [widget_explosionsmode_text,
-				                  widget_explosionsmode_submenu_explosion]
+				menu_widgets_2 = [widget_explosionsmode_text]
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
@@ -816,24 +816,21 @@ def main(raw_args=None):
 				#
 				if arrow_down and not arrow_up:
 					event_selection_menu.increase_index()
-					unit_selection_menu.increase_index()
+					unit_selection_menu_explosion.increase_index()
 				elif arrow_up and not arrow_down:
 					event_selection_menu.decrease_index()
-					unit_selection_menu.decrease_index()
-				u_bool = event_selection_menu.update(mouse_pos_screen, left_clicking)
-				w_bool = unit_selection_menu.update(mouse_pos_screen, left_clicking)
-				if u_bool:
-					event_selection_menu.is_selected = True
-					unit_selection_menu.is_selected = False
-				elif w_bool:
-					event_selection_menu.is_selected = False
-					unit_selection_menu.is_selected = True
+					unit_selection_menu_explosion.decrease_index()
 				#
-				unit_msg = event_selection_menu.get_selected_content()
-				wall_msg = unit_selection_menu.get_selected_content()
-				#
+				event_selection_menu.update(mouse_pos_screen, left_clicking)
 				event_selection_menu.draw(screen)
-				unit_selection_menu.draw(screen)
+				event_submode = event_selection_menu.get_selected_content()
+				if event_submode == 'explosion':
+					widget_explosionsmode_submenu_explosion.update(mouse_pos_screen, left_clicking)
+					widget_explosionsmode_submenu_explosion.draw(screen)
+					unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking)
+					unit_selection_menu_explosion.draw(screen)
+				else:
+					unit_selection_menu_explosion.is_selected = False
 
 			#
 			# EDITOR PAUSE MENU

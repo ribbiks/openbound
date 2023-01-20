@@ -134,3 +134,9 @@ class UnitMenu(SelectionMenu):
 		#
 		self.empty_message = 'no units found.'
 		self.is_selected   = False
+
+	def get_selected_content(self):
+		if not self.content:
+			return None
+		else:
+			return self.content[self.index][0]
