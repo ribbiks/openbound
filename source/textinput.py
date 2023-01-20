@@ -20,22 +20,34 @@ class TextInput:
 		self.draw_cursor  = False
 		self.char_offset  = Vector2(char_offset.x, char_offset.y)
 		self.max_width    = br.x - tl.x - 2*self.char_offset.x
+		self.max_chars    = max_chars
 		self.num_rows     = num_rows
-		self.manager      = TextInputManager(validator = lambda input: (len(input) <= max_chars and self.font.can_be_fully_rendered(input+'|', self.max_width, self.num_rows)))
+		self.manager      = TextInputManager(validator = lambda input: (len(input) <= self.max_chars and self.font.can_be_fully_rendered(input+'|', self.max_width, self.num_rows)))
 
 	def get_string(self):
 		return ''.join(self.str_left) + ''.join(self.str_right)
+
+	def reset_with_new_str(self, new_str):
+		self.is_selected   = False
+		self.str_left      = new_str[:]
+		self.str_right     = ''
+		self.manager.left  = self.str_left[:]
+		self.manager.right = ''
 
 	def update(self, mousepos, activation, pygame_events):
 		if activation:
 			if point_in_box_excl(mousepos, self.tl, self.br):
 				self.is_selected = True
 			else:
-				self.is_selected   = False
-				self.str_left      = self.str_left + self.str_right
-				self.str_right     = ''
-				self.manager.left  = self.str_left[:]
-				self.manager.right = ''
+				self.reset_with_new_str(self.str_left + self.str_right)
+		#
+		# deselect if return key is pressed
+		#
+		for event in pygame_events:
+			if event.type == pl.KEYDOWN and event.key == pl.K_RETURN:
+				self.reset_with_new_str(self.str_left + self.str_right)
+				break
+		#
 		if self.is_selected:
 			self.manager.update(pygame_events)
 			self.str_left  = self.font.sanitize(self.manager.left)
@@ -95,7 +107,7 @@ class DigitInput(TextInput):
 				self.str_left = str(self.value)
 
 	def get_value(self):
-		return self.value
+		return value_clamp(self.value, self.bounds[0], self.bounds[1])
 
 """
 Copyright 2021, Silas Gyger, silasgyger@gmail.com, All rights reserved.

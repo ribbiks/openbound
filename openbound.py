@@ -14,6 +14,7 @@ from pygame.math   import Vector2
 from source.animationmanager import AnimationManager
 from source.audiomanager     import AudioManager
 from source.cursor           import Cursor
+from source.draggableobject  import DraggableObject
 from source.font             import Font
 from source.geometry         import get_window_offset
 from source.globals          import GRID_SIZE, PLAYER_RADIUS
@@ -120,8 +121,9 @@ def main(raw_args=None):
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
 
 	# initial geometry stuff
+	DEFAULT_PLAYER_START  = Vector2(1,1)
 	DEFAULT_MAP_DIM       = Vector2(32,32)
-	current_map_bounds    = Vector2(DEFAULT_MAP_DIM.x*GRID_SIZE, DEFAULT_MAP_DIM.y*GRID_SIZE)
+	current_map_bounds    = DEFAULT_MAP_DIM*GRID_SIZE
 	current_window_offset = Vector2(0, 0)
 	selection_box         = [None, None]
 	editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
@@ -308,6 +310,9 @@ def main(raw_args=None):
 	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=5, max_chars=2)
 	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (1,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
 	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (1,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
+	#
+	draggable_playerstart = DraggableObject(DEFAULT_PLAYER_START*GRID_SIZE, PLAYER_RADIUS*2)
+	draggable_playerstart.add_image(player_img_fns[0])
 	#
 	#
 	#
@@ -724,6 +729,8 @@ def main(raw_args=None):
 			#
 			current_map_bounds = Vector2(digitinput_mapsizex.get_value() * GRID_SIZE,
 			                             digitinput_mapsizey.get_value() * GRID_SIZE)
+			digitinput_playerx.bounds = (1, digitinput_mapsizex.get_value() - 1)
+			digitinput_playery.bounds = (1, digitinput_mapsizey.get_value() - 1)
 			if not any_selectionmenu_selected and not any_textinput_selected:
 				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, editor_resolution)
 			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
@@ -772,18 +779,27 @@ def main(raw_args=None):
 				                     digitinput_mapsizey,
 				                     digitinput_playerx,
 				                     digitinput_playery]
+				menu_widgets_2    = [widget_propertiesmode_text]
 				#
-				for tw in textinput_widgets:
-					tw.draw(screen)
 				for tw in textinput_widgets:
 					tw.update(mouse_pos_screen, left_clicking, pygame_events)
-				#
-				menu_widgets_2 = [widget_propertiesmode_text]
+					tw.draw(screen)
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
 					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
 					mw.draw(screen)
+				#
+				draggable_player_released = draggable_playerstart.update(mouse_pos_map, left_clicking, left_released)
+				if not draggable_player_released and not draggable_playerstart.is_selected:
+					if not digitinput_playerx.is_selected and not digitinput_playery.is_selected:
+						draggable_playerstart.center_pos = Vector2(digitinput_playerx.get_value()*GRID_SIZE,
+						                                           digitinput_playery.get_value()*GRID_SIZE)
+				elif draggable_player_released:
+					digitinput_playerx.reset_with_new_str(str(int(draggable_playerstart.center_pos.x/GRID_SIZE)))
+					digitinput_playery.reset_with_new_str(str(int(draggable_playerstart.center_pos.y/GRID_SIZE)))
+				draggable_playerstart.draw(screen, current_window_offset)
+
 
 			#
 			# EXPLOSIONS MODE
