@@ -15,10 +15,10 @@ from source.animationmanager import AnimationManager
 from source.audiomanager     import AudioManager
 from source.cursor           import Cursor
 from source.font             import Font
-from source.geometry         import value_clamp
-from source.globals          import GRID_SIZE, PLAYER_RADIUS, SCROLL_SPEED
+from source.geometry         import get_window_offset
+from source.globals          import GRID_SIZE, PLAYER_RADIUS
 from source.mauzling         import Mauzling
-from source.misc_gfx         import Color, draw_grid, draw_selection_box, FADE_SEQUENCE
+from source.misc_gfx         import Color, draw_grid, draw_map_bounds, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
 from source.selectionmenu    import MapMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
@@ -39,8 +39,8 @@ class GameState:
 	PAUSE_MENU_E = 5	# fade screen when you select editor from main menu --> create new map or edit existing
 	EDITOR_PROPERTIES = 6
 	EDITOR_TERRAIN    = 7
-	EDITOR_PLACE_OB   = 8
-	EDITOR_EDIT_OB    = 9
+	EDITOR_LOCATIONS  = 8
+	EDITOR_EXPLOSIONS = 9
 	EDITOR_SAVE       = 10
 
 UPSCALE_2X = True
@@ -118,6 +118,13 @@ def main(raw_args=None):
 	my_animations = AnimationManager()
 	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
+
+	# initial geometry stuff
+	DEFAULT_MAP_DIM       = Vector2(32,32)
+	current_map_bounds    = Vector2(DEFAULT_MAP_DIM.x*GRID_SIZE, DEFAULT_MAP_DIM.y*GRID_SIZE)
+	current_window_offset = Vector2(0, 0)
+	selection_box         = [None, None]
+	editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
 
 	# other gfx
 	my_cursor = Cursor(cursor_img_fns)
@@ -286,21 +293,21 @@ def main(raw_args=None):
 	#
 	VBUFF    = 2
 	(tl, br) = (Vector2(208, 368 + VBUFF), Vector2(384, 392 - VBUFF))
-	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=27)
+	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=100)
 	#
 	(tl, br) = (Vector2(208, 392 + VBUFF), Vector2(384, 416 - VBUFF))
-	textinput_author      = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=27)
-	textinput_description = TextInput(Vector2(tl.x+192, tl.y), Vector2(br.x+176, br.y+48), font_dict['small_w'], char_offset=Vector2(4,4), num_rows=7, max_chars=172)
+	textinput_author      = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=100)
+	textinput_description = TextInput(Vector2(tl.x+192, tl.y), Vector2(br.x+176, br.y+48), font_dict['small_w'], char_offset=Vector2(4,4), num_rows=7, max_chars=500)
 	#
 	(tl, br) = (Vector2(208, 416 + VBUFF), Vector2(240, 440 - VBUFF))
-	digitinput_lives    = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x, br.y),     font_dict['small_w'], (0,9999), char_offset=Vector2(6,7), default_val=100, max_chars=4)
-	digitinput_mapsizex = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (16,512), char_offset=Vector2(6,7), default_val=32,  max_chars=3)
-	digitinput_mapsizey = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (16,512), char_offset=Vector2(6,7), default_val=32,  max_chars=3)
+	digitinput_lives    = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,9999), char_offset=Vector2(6,7), default_val=100, max_chars=4)
+	digitinput_mapsizex = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (16,256), char_offset=Vector2(6,7), default_val=int(DEFAULT_MAP_DIM.x),  max_chars=3)
+	digitinput_mapsizey = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (16,256), char_offset=Vector2(6,7), default_val=int(DEFAULT_MAP_DIM.y),  max_chars=3)
 	#
 	(tl, br) = (Vector2(208, 440 + VBUFF), Vector2(240, 464 - VBUFF))
-	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x, br.y),     font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=5,  max_chars=2)
-	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (0,512), char_offset=Vector2(6,7), default_val=64, max_chars=3)
-	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (0,512), char_offset=Vector2(6,7), default_val=64, max_chars=3)
+	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=5, max_chars=2)
+	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (1,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
+	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (1,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
 	#
 	#
 	#
@@ -322,15 +329,15 @@ def main(raw_args=None):
 	widget_editmode_placeob = UIWidget()
 	widget_editmode_placeob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
 	widget_editmode_placeob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
-	widget_editmode_placeob.add_text((tl+br)/2 + Vector2(1,1), 'Place Obstacle', 'placeob', font_dict['large_w'], is_centered=True)
-	widget_editmode_placeob.add_return_message('change_edit_mode_to_placeob')
+	widget_editmode_placeob.add_text((tl+br)/2 + Vector2(1,1), 'Locations', 'placeob', font_dict['large_w'], is_centered=True)
+	widget_editmode_placeob.add_return_message('change_edit_mode_to_locations')
 	#
 	(tl, br) = (Vector2(16, RESOLUTION.y - 40 + 1), Vector2(128, RESOLUTION.y - 16 - 1))
 	widget_editmode_editob = UIWidget()
 	widget_editmode_editob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
 	widget_editmode_editob.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
-	widget_editmode_editob.add_text((tl+br)/2 + Vector2(1,1), 'Edit Obstacle', 'editob', font_dict['large_w'], is_centered=True)
-	widget_editmode_editob.add_return_message('change_edit_mode_to_editob')
+	widget_editmode_editob.add_text((tl+br)/2 + Vector2(1,1), 'Explosions', 'editob', font_dict['large_w'], is_centered=True)
+	widget_editmode_editob.add_return_message('change_edit_mode_to_explosions')
 	#
 	(tl, br) = (Vector2(576, RESOLUTION.y - 112 + 4 + 1), Vector2(624, RESOLUTION.y - 88 + 4 - 1))
 	widget_editmode_undo = UIWidget()
@@ -357,23 +364,15 @@ def main(raw_args=None):
 	#
 	#
 	#
-	(tl, br) = (Vector2(144, RESOLUTION.y - 112), Vector2(224, RESOLUTION.y-16))
-	widget_unitselect_bg = UIWidget()
-	widget_unitselect_bg.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	(tl, br) = (Vector2(148, 368 + 5), Vector2(224, RESOLUTION.y-16))
+	widget_explosionsmode_text = UIWidget()
+	widget_explosionsmode_text.add_rect(Vector2(tl.x, tl.y + 20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_explosionsmode_text.add_text(Vector2(tl.x + 2, tl.y), 'Event type:', 't1', font_dict['large_w'])
+	event_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), ['explosion', 'add wall', 'remove wall', 'teleport'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
-	unit_selection_text = UIWidget()
-	unit_selection_text.add_text(tl + Vector2(5,5), 'Explosion unit:', 'expunit', font_dict['small_w'])
-	#
-	unit_selection_menu = UnitMenu(Vector2(160, RESOLUTION.y - 96), ['overlord', 'scourge'], font_dict['small_w'],    num_rows=6, row_height=16, col_width=64)
-	#
-	(tl, br) = (Vector2(240, RESOLUTION.y - 112), Vector2(320, RESOLUTION.y-16))
-	widget_wallselect_bg = UIWidget()
-	widget_wallselect_bg.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
-	#
-	wall_selection_text = UIWidget()
-	wall_selection_text.add_text(tl + Vector2(5,5), 'Wall unit:', 'wallunit', font_dict['small_w'])
-	#
-	wall_selection_menu = UnitMenu(Vector2(256, RESOLUTION.y - 96), ['crystal', 'psi emitter'], font_dict['small_w'], num_rows=6, row_height=16, col_width=64)
+	widget_explosionsmode_submenu_explosion = UIWidget()
+	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y + 20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
+	unit_selection_menu = UnitMenu(Vector2(256, RESOLUTION.y - 96), ['crystal', 'psi emitter'], font_dict['small_w'], num_rows=6, row_height=16, col_width=64)
 	#
 	#
 	#
@@ -407,17 +406,10 @@ def main(raw_args=None):
 	my_audio.add_sound(exp_sound_fns[1], 'scourge')
 	my_audio.add_sound(player_sound_fns[0], 'player_death')
 
-	# misc vars
-	WINDOW_OFFSET = Vector2(0, 0)
-	SCROLL_X      = Vector2(SCROLL_SPEED, 0)
-	SCROLL_Y      = Vector2(0, SCROLL_SPEED)
-	TIME_SPENT    = [0.]
-	selection_box = [None, None]
-
 	# misc gamestate stuff
 	next_gamestate   = None
 	transition_alpha = deque([])
-	editor_states    = [GameState.EDITOR_PROPERTIES, GameState.EDITOR_TERRAIN, GameState.EDITOR_PLACE_OB, GameState.EDITOR_EDIT_OB, GameState.EDITOR_SAVE]
+	editor_states    = [GameState.EDITOR_PROPERTIES, GameState.EDITOR_TERRAIN, GameState.EDITOR_LOCATIONS, GameState.EDITOR_EXPLOSIONS, GameState.EDITOR_SAVE]
 	previous_editor_state = None
 
 	# inputs that can be held down across frames
@@ -484,7 +476,7 @@ def main(raw_args=None):
 			mouse_pos_screen = Vector2(int(mx*mouse_scale_factor[0] + 0.5), int(my*mouse_scale_factor[1] + 0.5))
 		else:
 			mouse_pos_screen = Vector2(mx,my)
-		mouse_pos_map = mouse_pos_screen - WINDOW_OFFSET
+		mouse_pos_map = mouse_pos_screen - current_window_offset
 		#
 		if left_clicking:
 			selection_box = [Vector2(mouse_pos_screen.x, mouse_pos_screen.y), None]
@@ -497,7 +489,7 @@ def main(raw_args=None):
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
-		grid_offset = Vector2(WINDOW_OFFSET.x % GRID_SIZE, WINDOW_OFFSET.y % GRID_SIZE)
+		grid_offset = Vector2(current_window_offset.x % GRID_SIZE, current_window_offset.y % GRID_SIZE)
 		draw_grid(screen, RESOLUTION,   GRID_SIZE, grid_offset, Color.GRID_MINOR)
 		draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
 
@@ -616,26 +608,15 @@ def main(raw_args=None):
 			if current_gamestate == GameState.BOUNDING:
 				current_volume = 0.35
 				#
-				# processing player inputs: moving screen
+				# processing player inputs
 				#
-				if arrow_left and not arrow_right:
-					WINDOW_OFFSET += SCROLL_X
-				if arrow_right and not arrow_left:
-					WINDOW_OFFSET -= SCROLL_X
-				if arrow_up and not arrow_down:
-					WINDOW_OFFSET += SCROLL_Y
-				if arrow_down and not arrow_up:
-					WINDOW_OFFSET -= SCROLL_Y
-				WINDOW_OFFSET.x = value_clamp(WINDOW_OFFSET.x, min(RESOLUTION.x -  map_width, 0), 0)
-				WINDOW_OFFSET.y = value_clamp(WINDOW_OFFSET.y, min(RESOLUTION.y - map_height, 0), 0)
-				#
-				# processing player inputs: selection + movement orders
+				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, RESOLUTION)
 				#
 				if left_released and selection_box[0] != None:
 					if (selection_box[1] - selection_box[0]).length() < 4:
-						my_player.check_selection_click(selection_box[1] - WINDOW_OFFSET)
+						my_player.check_selection_click(selection_box[1] - current_window_offset)
 					else:
-						my_player.check_selection_box([selection_box[0] - WINDOW_OFFSET, selection_box[1] - WINDOW_OFFSET])
+						my_player.check_selection_box([selection_box[0] - current_window_offset, selection_box[1] - current_window_offset])
 				#
 				if right_clicking:
 					draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
@@ -669,14 +650,14 @@ def main(raw_args=None):
 				####	my_player.add_lives(10, ob.revive_coords)
 
 			# Terrain / Obstacles ------------------------------------ #
-			world_map.draw(screen, WINDOW_OFFSET, draw_tiles=True,
+			world_map.draw(screen, current_window_offset, draw_tiles=True,
 			                                      draw_obs=False,
 			                                      draw_walkable=False,
 			                                      draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
-			my_player.draw(screen, WINDOW_OFFSET, draw_bounding_box=True)
-			my_animations.draw(screen, WINDOW_OFFSET)
+			my_player.draw(screen, current_window_offset, draw_bounding_box=True)
+			my_animations.draw(screen, current_window_offset)
 
 			# Draw UI elements --------------------------------------- #
 			if current_gamestate == GameState.BOUNDING:
@@ -727,6 +708,28 @@ def main(raw_args=None):
 		############################################################
 		elif current_gamestate in editor_states:
 			#
+			any_selectionmenu_selected = any([event_selection_menu.is_selected,
+			                                  unit_selection_menu.is_selected])
+			any_textinput_selected = any([textinput_mapname.is_selected,
+			                              textinput_author.is_selected,
+			                              textinput_description.is_selected,
+			                              digitinput_lives.is_selected,
+			                              digitinput_rating.is_selected,
+			                              digitinput_mapsizex.is_selected,
+			                              digitinput_mapsizey.is_selected,
+			                              digitinput_playerx.is_selected,
+			                              digitinput_playery.is_selected])
+			#
+			# initial drawing of map area
+			#
+			current_map_bounds = Vector2(digitinput_mapsizex.get_value() * GRID_SIZE,
+			                             digitinput_mapsizey.get_value() * GRID_SIZE)
+			if not any_selectionmenu_selected and not any_textinput_selected:
+				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, editor_resolution)
+			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
+			#
+			# buttons and gfx that are present in every mode
+			#
 			edbar_fade.fill(Color.BACKGROUND)
 			edbar_fade.set_alpha(128)
 			screen.blit(edbar_fade, (0, RESOLUTION.y - 127), special_flags=pygame.BLEND_ALPHA_SDL2)
@@ -747,9 +750,9 @@ def main(raw_args=None):
 				menu_widgets[0].is_mouseover = True
 			elif current_gamestate == GameState.EDITOR_TERRAIN:
 				menu_widgets[1].is_mouseover = True
-			elif current_gamestate == GameState.EDITOR_PLACE_OB:
+			elif current_gamestate == GameState.EDITOR_LOCATIONS:
 				menu_widgets[2].is_mouseover = True
-			elif current_gamestate == GameState.EDITOR_EDIT_OB:
+			elif current_gamestate == GameState.EDITOR_EXPLOSIONS:
 				menu_widgets[3].is_mouseover = True
 			#
 			for mw in menu_widgets:
@@ -783,14 +786,12 @@ def main(raw_args=None):
 					mw.draw(screen)
 
 			#
-			# EDIT OB MODE
+			# EXPLOSIONS MODE
 			#
-			if current_gamestate == GameState.EDITOR_EDIT_OB:
+			if current_gamestate == GameState.EDITOR_EXPLOSIONS:
 				#
-				menu_widgets_2 = [widget_unitselect_bg,
-				                  widget_wallselect_bg,
-				                  unit_selection_text,
-				                  wall_selection_text]
+				menu_widgets_2 = [widget_explosionsmode_text,
+				                  widget_explosionsmode_submenu_explosion]
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
@@ -798,25 +799,25 @@ def main(raw_args=None):
 					mw.draw(screen)
 				#
 				if arrow_down and not arrow_up:
+					event_selection_menu.increase_index()
 					unit_selection_menu.increase_index()
-					wall_selection_menu.increase_index()
 				elif arrow_up and not arrow_down:
+					event_selection_menu.decrease_index()
 					unit_selection_menu.decrease_index()
-					wall_selection_menu.decrease_index()
-				u_bool = unit_selection_menu.update(mouse_pos_screen, left_clicking)
-				w_bool = wall_selection_menu.update(mouse_pos_screen, left_clicking)
+				u_bool = event_selection_menu.update(mouse_pos_screen, left_clicking)
+				w_bool = unit_selection_menu.update(mouse_pos_screen, left_clicking)
 				if u_bool:
-					unit_selection_menu.is_selected = True
-					wall_selection_menu.is_selected = False
-				elif w_bool:
+					event_selection_menu.is_selected = True
 					unit_selection_menu.is_selected = False
-					wall_selection_menu.is_selected = True
+				elif w_bool:
+					event_selection_menu.is_selected = False
+					unit_selection_menu.is_selected = True
 				#
-				unit_msg = unit_selection_menu.get_selected_content()
-				wall_msg = wall_selection_menu.get_selected_content()
+				unit_msg = event_selection_menu.get_selected_content()
+				wall_msg = unit_selection_menu.get_selected_content()
 				#
+				event_selection_menu.draw(screen)
 				unit_selection_menu.draw(screen)
-				wall_selection_menu.draw(screen)
 
 			#
 			# EDITOR PAUSE MENU
@@ -858,11 +859,11 @@ def main(raw_args=None):
 					elif msg == 'change_edit_mode_to_terrain' and current_gamestate != GameState.EDITOR_TERRAIN:
 						current_gamestate     = GameState.EDITOR_TERRAIN
 						changing_editor_state = True
-					elif msg == 'change_edit_mode_to_placeob' and current_gamestate != GameState.EDITOR_PLACE_OB:
-						current_gamestate     = GameState.EDITOR_PLACE_OB
+					elif msg == 'change_edit_mode_to_locations' and current_gamestate != GameState.EDITOR_LOCATIONS:
+						current_gamestate     = GameState.EDITOR_LOCATIONS
 						changing_editor_state = True
-					elif msg == 'change_edit_mode_to_editob' and current_gamestate != GameState.EDITOR_EDIT_OB:
-						current_gamestate     = GameState.EDITOR_EDIT_OB
+					elif msg == 'change_edit_mode_to_explosions' and current_gamestate != GameState.EDITOR_EXPLOSIONS:
+						current_gamestate     = GameState.EDITOR_EXPLOSIONS
 						changing_editor_state = True
 			if escape_pressed and previous_editor_state != GameState.EDITOR_SAVE:
 				previous_editor_state = current_gamestate
@@ -889,7 +890,7 @@ def main(raw_args=None):
 					all_map_files = get_file_paths(MAP_DIR, all_map_names)
 					for i in range(len(all_map_names)):
 						all_map_files[i] = (all_map_names[i][:-5], all_map_files[i])
-					map_selection_menu = MapMenu(MAPSELECT_MENU_POS, all_map_files, font_dict['small_w'], num_rows=15, row_height=16, col_width=248)
+					map_selection_menu = MapMenu(MAPSELECT_MENU_POS, all_map_files, font_dict['small_w'], num_rows=15, row_height=16, col_width=248, sort_field=0)
 				#
 				if current_gamestate == GameState.BOUNDING:
 					if map_fn_to_load != None:
@@ -900,9 +901,8 @@ def main(raw_args=None):
 						if world_map.p_starts[0] == None:
 							print('No player 1 start found')
 							exit(1)
-						map_width  = world_map.map_width * GRID_SIZE
-						map_height = world_map.map_height * GRID_SIZE
-						my_player  = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
+						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
+						my_player = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
 						my_player.num_lives = world_map.init_lives
 						map_fn_to_load = None
 			if not transition_alpha:
@@ -926,10 +926,6 @@ def main(raw_args=None):
 
 		if left_released:
 			selection_box = [None, None]
-
-		##### print runtime stats every 100 frames
-		####if current_frame % 100 == 0:
-		####	print([int(1000.*n/current_frame) for n in TIME_SPENT], 'ms/frame')
 
 if __name__ == '__main__':
 	try:

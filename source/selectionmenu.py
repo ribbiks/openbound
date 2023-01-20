@@ -10,14 +10,15 @@ from source.misc_gfx import Color
 # base menu class
 #
 class SelectionMenu:
-	def __init__(self, pos, content, font, num_rows=8, row_height=8, col_width=128, sort_field=0):
+	def __init__(self, pos, content, font, num_rows=8, row_height=8, col_width=128, sort_field=None):
 		self.pos     = pos
 		self.content = []
 		self.font    = font
 		self.index   = 0
 		#
 		self.content = [(n,) for n in content]
-		self.resort(sort_field)
+		if sort_field != None and sort_field >= 0:
+			self.resort(sort_field)
 		#
 		self.num_rows   = num_rows
 		self.row_height = row_height
@@ -34,7 +35,7 @@ class SelectionMenu:
 		self.index     = 0
 
 	def get_selected_content(self, sanitize=False):
-		if not self.content or self.is_selected == False:
+		if not self.content:
 			return None
 		if sanitize:
 			return (self.font.sanitize(str(n)) for n in self.content[self.index])
@@ -68,6 +69,8 @@ class SelectionMenu:
 			self.index = which_index
 			self.is_selected = True
 			output_bool = True
+		elif activation:
+			self.is_selected = False
 		if self.current_delay > 0:
 			self.current_delay -= 1
 		return output_bool
@@ -77,10 +80,12 @@ class SelectionMenu:
 			offset = Vector2(4,4)
 			self.font.render(screen, self.empty_message, self.pos + offset)
 		else:
+			tl = self.pos + Vector2(0, (self.index - self.current_range[0]) * self.row_height)
+			br = self.pos + Vector2(self.col_width, (self.index - self.current_range[0] + 1) * self.row_height)
+			my_rect = pygame.Rect(tl, br-tl)
 			if self.is_selected:
-				tl = self.pos + Vector2(0, (self.index - self.current_range[0]) * self.row_height)
-				br = self.pos + Vector2(self.col_width, (self.index - self.current_range[0] + 1) * self.row_height)
-				my_rect = pygame.Rect(tl, br-tl)
+				pygame.draw.rect(screen, Color.PAL_BLUE_3, my_rect, border_radius=2)
+			else:
 				pygame.draw.rect(screen, Color.PAL_BLUE_4, my_rect, border_radius=2)
 			#
 			for i in range(self.current_range[0], self.current_range[1]):
@@ -119,7 +124,7 @@ class MapMenu(SelectionMenu):
 #
 #
 class UnitMenu(SelectionMenu):
-	def __init__(self, pos, unitdat_list, font, num_rows=5, row_height=16, col_width=128, sort_field=0):
+	def __init__(self, pos, unitdat_list, font, num_rows=5, row_height=16, col_width=128, sort_field=None):
 		#
 		super().__init__(pos, unitdat_list, font,
 		                 num_rows=num_rows,

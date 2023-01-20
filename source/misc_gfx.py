@@ -46,12 +46,20 @@ def draw_grid(screen, screensize, gridsize, offset, color):
 		p2 = Vector2(screensize.x + gridsize, y)
 		pygame.draw.line(screen, color, p1+offset, p2+offset, width=1)
 
-def draw_selection_box(screen, corner_points, color):
-	if corner_points != None:
-		dx = Vector2(corner_points[1].x - corner_points[0].x, 0)
-		dy = Vector2(0, corner_points[1].y - corner_points[0].y)
-		v  = corner_points[0]
+def draw_selection_box(screen, box, color):
+	if box != None:
+		dx = Vector2(box[1].x - box[0].x, 0)
+		dy = Vector2(0, box[1].y - box[0].y)
+		v  = box[0]
 		pygame.draw.line(screen, color,       v,    v+dx, width=1)
 		pygame.draw.line(screen, color,    v+dx, v+dx+dy, width=1)
 		pygame.draw.line(screen, color, v+dx+dy,    v+dy, width=1)
 		pygame.draw.line(screen, color,    v+dy,       v, width=1)
+
+def draw_map_bounds(screen, mapsize, offset, color):
+	dx = Vector2(mapsize.x, 0)
+	dy = Vector2(0, mapsize.y)
+	pygame.draw.line(screen, color,       offset,    dx+offset, width=3)
+	pygame.draw.line(screen, color,    dx+offset, dx+dy+offset, width=3)
+	pygame.draw.line(screen, color, dx+dy+offset,    dy+offset, width=3)
+	pygame.draw.line(screen, color,    dy+offset,       offset, width=3)

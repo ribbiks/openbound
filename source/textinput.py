@@ -14,7 +14,6 @@ class TextInput:
 		self.br           = br
 		self.font         = font
 		self.is_selected  = False
-		self.manager      = TextInputManager(validator = lambda input: len(input) <= max_chars)
 		self.str_left     = ''
 		self.str_right    = ''
 		self.cursor_delay = 0
@@ -22,6 +21,7 @@ class TextInput:
 		self.char_offset  = Vector2(char_offset.x, char_offset.y)
 		self.max_width    = br.x - tl.x - 2*self.char_offset.x
 		self.num_rows     = num_rows
+		self.manager      = TextInputManager(validator = lambda input: (len(input) <= max_chars and self.font.can_be_fully_rendered(input+'|', self.max_width, self.num_rows)))
 
 	def get_string(self):
 		return ''.join(self.str_left) + ''.join(self.str_right)
@@ -55,9 +55,9 @@ class TextInput:
 		#
 		if self.is_selected:
 			if self.draw_cursor:
-				self.font.render(screen, self.str_left + '|' + self.str_right, self.tl + self.char_offset, max_width=self.max_width-self.char_offset.x, num_rows=self.num_rows)
+				self.font.render(screen, self.str_left + '|' + self.str_right, self.tl + self.char_offset, max_width=self.max_width, num_rows=self.num_rows)
 			else:
-				self.font.render(screen, self.str_left + ' ' + self.str_right, self.tl + self.char_offset, max_width=self.max_width-self.char_offset.x, num_rows=self.num_rows)
+				self.font.render(screen, self.str_left + ' ' + self.str_right, self.tl + self.char_offset, max_width=self.max_width, num_rows=self.num_rows)
 		else:
 			self.font.render(screen, self.str_left, self.tl + self.char_offset, max_width=self.max_width, num_rows=self.num_rows)
 
