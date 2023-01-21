@@ -4,6 +4,7 @@ import pygame
 from pygame.math import Vector2
 
 from source.geometry  import point_in_box_excl
+from source.globals   import GRID_SIZE
 from source.misc_gfx  import Color
 from source.tile_data import TILE_DATA
 from source.util      import get_file_paths
@@ -58,7 +59,7 @@ class SelectionMenu:
 			if self.index < self.current_range[0]:
 				self.current_range = (self.index, self.index + self.num_rows)
 
-	def update(self, mousepos, activation):
+	def update(self, mousepos, activation, release):
 		which_index = None
 		for i in range(self.current_range[0], self.current_range[1]):
 			tl = self.pos + Vector2(0, (i - self.current_range[0]) * self.row_height)
@@ -72,6 +73,8 @@ class SelectionMenu:
 			self.is_selected = True
 			output_bool = True
 		elif activation:
+			self.is_selected = False
+		if release:
 			self.is_selected = False
 		if self.current_delay > 0:
 			self.current_delay -= 1
@@ -146,40 +149,44 @@ class UnitMenu(SelectionMenu):
 #
 #
 #
-class TerrainMenu(SelectionMenu):
-	def __init__(self, pos, tilefn_list, font, num_rows=4, num_cols=12, row_height=24, col_width=24, sort_field=None):
+class TerrainMenu:
+	def __init__(self, pos, tilefn_list, font, num_rows=4, num_cols=10, row_height=24, col_width=24, sort_field=None):
 		#
-		super().__init__(pos, tilefn_list, font,
-		                 num_rows=num_rows,
-		                 row_height=row_height,
-		                 col_width=col_width,
-		                 sort_field=sort_field)
+		self.pos           = pos
+		self.font          = font
+		self.index         = 0
+		self.num_rows      = num_rows
+		self.row_height    = row_height
+		self.col_width     = col_width
+		self.current_delay = 0
 		#
 		self.tile_fns = {}
 		for i,my_tile_fn in enumerate(tilefn_list):
 			if my_tile_fn:
 				self.tile_fns[i] = my_tile_fn
 		self.tile_keys = sorted(TILE_DATA.keys())
-		#
 		tile_dat = []
 		for k in self.tile_keys:
 			if k in self.tile_fns:
 				tile_dat.append((k, TILE_DATA[k][0], TILE_DATA[k][1], pygame.image.load(self.tile_fns[k]).convert()))
 			else:
 				tile_dat.append((k, TILE_DATA[k][0], TILE_DATA[k][1], None))
-		my_i = 0
+		#
+		self.wall_highlight = pygame.Surface(Vector2(GRID_SIZE, GRID_SIZE))
+		self.wall_highlight.fill(Color.PAL_YEL_2)
+		self.wall_highlight.set_alpha(128)
+		#
 		self.content = []
 		if len(tile_dat):
 			self.content.append([])
 			for i in range(len(tile_dat)):
 				self.content[-1].append(tile_dat[i])
-				if (i+1)%num_cols == 0:
+				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
 					self.content.append([])
-		self.current_range = (0, min(self.num_rows, len(self.content)))
 		#
+		self.current_range = (0, min(self.num_rows, len(self.content)))
 		self.empty_message = 'no tiles found.'
 		self.is_selected   = False
-		self.col_width     = col_width
 		self.current_col   = 0
 
 	def get_selected_content(self):
@@ -213,7 +220,7 @@ class TerrainMenu(SelectionMenu):
 			self.current_col  += 1
 			self.current_delay = 2
 
-	def update(self, mousepos, activation):
+	def update(self, mousepos, activation, release):
 		which_index = None
 		which_col   = None
 		for i in range(self.current_range[0], self.current_range[1]):
@@ -234,11 +241,13 @@ class TerrainMenu(SelectionMenu):
 			output_bool = True
 		elif activation:
 			self.is_selected = False
+		if release:
+			self.is_selected = False
 		if self.current_delay > 0:
 			self.current_delay -= 1
 		return output_bool
 
-	def draw(self, screen):
+	def draw(self, screen, highlight_walls=False):
 		if not self.content and self.empty_message:
 			offset = Vector2(4,4)
 			self.font.render(screen, self.empty_message, self.pos + offset)
@@ -256,3 +265,5 @@ class TerrainMenu(SelectionMenu):
 					offset = Vector2(j*self.col_width + 4, (i - self.current_range[0])*self.row_height + 4)
 					if self.content[i][j][3] != None:
 						screen.blit(self.content[i][j][3], self.pos + offset)
+					if highlight_walls and self.content[i][j][1]:
+						screen.blit(self.wall_highlight, self.pos + offset, special_flags=pygame.BLEND_ALPHA_SDL2)

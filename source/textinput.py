@@ -34,19 +34,15 @@ class TextInput:
 		self.manager.left  = self.str_left[:]
 		self.manager.right = ''
 
-	def update(self, mousepos, activation, pygame_events):
+	def update(self, mousepos, activation, release, pygame_events):
 		if activation:
 			if point_in_box_excl(mousepos, self.tl, self.br):
 				self.is_selected = True
 			else:
 				self.reset_with_new_str(self.str_left + self.str_right)
 		#
-		# deselect if return key is pressed
-		#
-		for event in pygame_events:
-			if event.type == pl.KEYDOWN and event.key == pl.K_RETURN:
-				self.reset_with_new_str(self.str_left + self.str_right)
-				break
+		if release:
+			self.reset_with_new_str(self.str_left + self.str_right)
 		#
 		if self.is_selected:
 			self.manager.update(pygame_events)
@@ -92,9 +88,9 @@ class DigitInput(TextInput):
 			self.value = self.bounds[0]
 			self.str_left = str(self.value)
 
-	def update(self, mousepos, activation, pygame_events):
+	def update(self, mousepos, activation, release, pygame_events):
 		#
-		super().update(mousepos, activation, pygame_events)
+		super().update(mousepos, activation, release, pygame_events)
 		#
 		if not self.is_selected:
 			if self.str_left:
@@ -109,6 +105,9 @@ class DigitInput(TextInput):
 	def get_value(self):
 		return value_clamp(self.value, self.bounds[0], self.bounds[1])
 
+#
+#
+#
 """
 Copyright 2021, Silas Gyger, silasgyger@gmail.com, All rights reserved.
 

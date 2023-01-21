@@ -37,11 +37,11 @@ class Color:
 	PAL_YEL_6   = (115,  56,  62)
 
 def draw_grid(screen, screensize, gridsize, offset, color):
-	for x in range(0, int(screensize.x)+1, gridsize):
+	for x in range(0, int(screensize.x)+2, gridsize):
 		p1 = Vector2(x, -gridsize)
 		p2 = Vector2(x, screensize.y + gridsize)
 		pygame.draw.line(screen, color, p1+offset, p2+offset, width=1)
-	for y in range(0, int(screensize.y)+1, gridsize):
+	for y in range(0, int(screensize.y)+2, gridsize):
 		p1 = Vector2(-gridsize, y)
 		p2 = Vector2(screensize.x + gridsize, y)
 		pygame.draw.line(screen, color, p1+offset, p2+offset, width=1)

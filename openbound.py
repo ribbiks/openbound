@@ -8,15 +8,17 @@ import sys
 import time
 
 from collections   import deque
-from pygame.locals import QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, K_LSHIFT, K_RSHIFT, MOUSEBUTTONDOWN, MOUSEBUTTONUP
 from pygame.math   import Vector2
+
+import pygame.locals as pl
+import numpy as np
 
 from source.animationmanager import AnimationManager
 from source.audiomanager     import AudioManager
 from source.cursor           import Cursor
 from source.draggableobject  import DraggableObject
 from source.font             import Font
-from source.geometry         import get_window_offset
+from source.geometry         import get_window_offset, point_in_box_excl
 from source.globals          import GRID_SIZE, PLAYER_RADIUS
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_map_bounds, draw_selection_box, FADE_SEQUENCE
@@ -26,7 +28,7 @@ from source.textinput        import DigitInput, TextInput
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
 from source.util             import get_file_paths
-from source.worldmap         import WorldMap
+from source.worldmap         import TileMap, WorldMap
 
 GAME_VERS = 'OpenBound v0.1'
 FRAMERATE = 23.8095
@@ -126,11 +128,17 @@ def main(raw_args=None):
 	current_map_bounds    = DEFAULT_MAP_DIM*GRID_SIZE
 	current_window_offset = Vector2(0, 0)
 	selection_box         = [None, None]
+	leftclick_is_down     = False
+	rightclick_is_down    = False
 	editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
+	editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
+	editor_prevtilemapdim = editor_tilemap.shape
+	editor_tiledrawer     = TileMap(tile_fns)
 
 	# other gfx
 	my_cursor          = Cursor(cursor_img_fns)
 	map_selection_menu = None
+	highlight_walls    = False
 
 	#
 	#
@@ -330,16 +338,25 @@ def main(raw_args=None):
 	#	TERRAIN MODE WIDGETS
 	#
 	#
-	(tl, br) = (Vector2(160, 368), Vector2(448, 464))
+	(tl, br) = (Vector2(208, 368), Vector2(448, 464))
 	widget_terrainmode_text = UIWidget()
+	widget_terrainmode_text.add_rect(Vector2(tl.x-64, tl.y), Vector2(tl.x-16, br.y-40), Color.PAL_BLUE_5, border_radius=4)
 	widget_terrainmode_text.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
 	(tl, br) = (Vector2(464, 368), Vector2(560, 464))
 	widget_terrainmode_text.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
-	widget_terrainmode_text.add_text(Vector2((tl.x+br.x)/2, tl.y + 12), 'tilename',  'tilename', font_dict['small_w'], max_width=84, is_centered=True)
-	widget_terrainmode_text.add_text(Vector2(tl.x + 7, tl.y + 76),      'Walkable:', 't1',       font_dict['large_w'])
-	widget_terrainmode_text.add_text(Vector2(tl.x + 82, tl.y + 85),     'yes',       'walkable', font_dict['small_w'], is_centered=True)
+	widget_terrainmode_text.add_text(Vector2((tl.x+br.x)/2 - 1, tl.y + 12), 'tilename',  'tilename', font_dict['small_w'], max_width=84, is_centered=True)
 	#
-	(tl, br) = (Vector2(160, 368), Vector2(432, 464))
+	(tl, br) = (Vector2(144, 432), Vector2(192, 464))
+	widget_terrainmode_highlightwalls = UIWidget()
+	widget_terrainmode_highlightwalls.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_terrainmode_highlightwalls.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_terrainmode_highlightwalls.add_text((tl+br)/2 + Vector2(1,-4), 'Highlight', 'highlight', font_dict['small_w'], is_centered=True)
+	widget_terrainmode_highlightwalls.add_text((tl+br)/2 + Vector2(1,7),  'walls',     'walls',     font_dict['small_w'], is_centered=True)
+	widget_terrainmode_highlightwalls.add_return_message('toggle_wall_highlighting')
+	#
+	terraindim_selection_menu = UnitMenu(Vector2(154, 372), ['16x16', '32x32', '64x64'], font_dict['small_w'], num_rows=3, row_height=16, col_width=28)
+	#
+	(tl, br) = (Vector2(208, 368), Vector2(432, 464))
 	terrain_selection_menu = TerrainMenu(tl, tile_fns, font_dict['small_w'])
 	#
 	#
@@ -468,44 +485,50 @@ def main(raw_args=None):
 		left_released   = False
 		middle_clicking = False
 		right_clicking  = False
+		right_released  = False
 		escape_pressed  = False
+		return_pressed  = False
 		pygame_events   = pygame.event.get()
 		for event in pygame_events:
-			if event.type == QUIT:
+			if event.type == pl.QUIT:
 				pygame.quit()
 				sys.exit()
-			elif event.type == KEYDOWN:
-				if event.key == K_LEFT:
+			elif event.type == pl.KEYDOWN:
+				if event.key == pl.K_LEFT:
 					arrow_left = True
-				if event.key == K_UP:
+				if event.key == pl.K_UP:
 					arrow_up = True
-				if event.key == K_RIGHT:
+				if event.key == pl.K_RIGHT:
 					arrow_right = True
-				if event.key == K_DOWN:
+				if event.key == pl.K_DOWN:
 					arrow_down = True
-				if event.key == K_LSHIFT or event.key == K_RSHIFT:
+				if event.key == pl.K_LSHIFT or event.key == pl.K_RSHIFT:
 					shift_pressed = True
-				if event.key == K_ESCAPE:
+				if event.key == pl.K_ESCAPE:
 					escape_pressed = True
-			elif event.type == KEYUP:
-				if event.key == K_LEFT:
+				if event.key == pl.K_RETURN:
+					return_pressed = True
+			elif event.type == pl.KEYUP:
+				if event.key == pl.K_LEFT:
 					arrow_left = False
-				if event.key == K_UP:
+				if event.key == pl.K_UP:
 					arrow_up = False
-				if event.key == K_RIGHT:
+				if event.key == pl.K_RIGHT:
 					arrow_right = False
-				if event.key == K_DOWN:
+				if event.key == pl.K_DOWN:
 					arrow_down = False
-				if event.key == K_LSHIFT or event.key == K_RSHIFT:
+				if event.key == pl.K_LSHIFT or event.key == pl.K_RSHIFT:
 					shift_pressed = False
-			elif event.type == MOUSEBUTTONDOWN:
+			elif event.type == pl.MOUSEBUTTONDOWN:
 				if event.button == 1:
 					left_clicking = True
 				if event.button == 3:
 					right_clicking = True
-			elif event.type == MOUSEBUTTONUP:
+			elif event.type == pl.MOUSEBUTTONUP:
 				if event.button == 1:
 					left_released = True
+				if event.button == 3:
+					right_released = True
 		#
 		(mx,my) = pygame.mouse.get_pos()
 		if UPSCALE_2X:
@@ -517,17 +540,24 @@ def main(raw_args=None):
 		mouse_pos_map = mouse_pos_screen - current_window_offset
 		#
 		if left_clicking:
+			leftclick_is_down = True
 			selection_box = [Vector2(mouse_pos_screen.x, mouse_pos_screen.y), None]
 		if left_released:
+			leftclick_is_down = False
 			if selection_box[0] != None:
 				if selection_box[1] == None:
 					selection_box[1] = selection_box[0]
 		if selection_box[0] != None:
 			selection_box[1] = Vector2(mouse_pos_screen.x, mouse_pos_screen.y)
+		#
+		if right_clicking:
+			rightclick_is_down = True
+		if right_released:
+			rightclick_is_down = False
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
-		grid_offset = Vector2(current_window_offset.x % GRID_SIZE, current_window_offset.y % GRID_SIZE)
+		grid_offset = Vector2(current_window_offset.x % (2*GRID_SIZE), current_window_offset.y % (2*GRID_SIZE))
 		draw_grid(screen, RESOLUTION,   GRID_SIZE, grid_offset, Color.GRID_MINOR)
 		draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
 
@@ -615,7 +645,7 @@ def main(raw_args=None):
 				map_selection_menu.increase_index()
 			elif arrow_up and not arrow_down:
 				map_selection_menu.decrease_index()
-			map_selection_menu.update(mouse_pos_screen, left_clicking)
+			map_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
 			map_selection_menu.draw(screen)
 			#
 			for msg in mw_output_msgs:
@@ -748,7 +778,8 @@ def main(raw_args=None):
 		#
 		elif current_gamestate in editor_states:
 			#
-			any_selectionmenu_selected = any([terrain_selection_menu.is_selected,
+			any_selectionmenu_selected = any([terraindim_selection_menu.is_selected,
+			                                  terrain_selection_menu.is_selected,
 			                                  event_selection_menu.is_selected,
 			                                  unit_selection_menu_explosion.is_selected])
 			any_textinput_selected = any([textinput_mapname.is_selected,
@@ -763,12 +794,20 @@ def main(raw_args=None):
 			#
 			# initial drawing of map area
 			#
-			current_map_bounds = Vector2(digitinput_mapsizex.get_value() * GRID_SIZE,
-			                             digitinput_mapsizey.get_value() * GRID_SIZE)
-			digitinput_playerx.bounds = (0, digitinput_mapsizex.get_value() - 1)
-			digitinput_playery.bounds = (0, digitinput_mapsizey.get_value() - 1)
-			if not any_selectionmenu_selected and not any_textinput_selected:
-				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, editor_resolution)
+			di_x = digitinput_mapsizex.get_value()
+			di_y = digitinput_mapsizey.get_value()
+			current_map_bounds = Vector2(di_x*GRID_SIZE, di_y*GRID_SIZE)
+			if di_x < editor_prevtilemapdim[0]:
+				editor_tilemap = editor_tilemap[:di_x,:]
+			elif di_x > editor_prevtilemapdim[0]:
+				editor_tilemap = np.pad(editor_tilemap, [(0,di_x-editor_prevtilemapdim[0]), (0,0)])
+			if di_y < editor_prevtilemapdim[1]:
+				editor_tilemap = editor_tilemap[:,:di_y]
+			elif di_y > editor_prevtilemapdim[1]:
+				editor_tilemap = np.pad(editor_tilemap, [(0,0), (0,di_y-editor_prevtilemapdim[1])])
+			editor_prevtilemapdim = editor_tilemap.shape
+			#
+			editor_tiledrawer.draw(screen, current_window_offset, editor_tilemap, highlight_walls)
 			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
 			#
 			# buttons and gfx that are present in every mode
@@ -818,7 +857,7 @@ def main(raw_args=None):
 				menu_widgets_2    = [widget_propertiesmode_text]
 				#
 				for tw in textinput_widgets:
-					tw.update(mouse_pos_screen, left_clicking, pygame_events)
+					tw.update(mouse_pos_screen, left_clicking, return_pressed, pygame_events)
 					tw.draw(screen)
 				#
 				mw_output_msgs_2 = {}
@@ -841,20 +880,28 @@ def main(raw_args=None):
 			#
 			if current_gamestate == GameState.EDITOR_TERRAIN:
 				#
-				menu_widgets_2 = [widget_terrainmode_text]
+				menu_widgets_2 = [widget_terrainmode_text,
+				                  widget_terrainmode_highlightwalls]
 				#
 				(tile_k, tile_wall, tile_name, tile_img)      = terrain_selection_menu.get_selected_content()
 				widget_terrainmode_text.text_data['tilename'] = str(tile_name)
-				widget_terrainmode_text.text_data['walkable'] = 'no'*tile_wall + 'yes'*(tile_wall == False)
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
 					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
 					mw.draw(screen)
+				for msg in mw_output_msgs_2:
+					if not transition_alpha:
+						if msg == 'toggle_wall_highlighting':
+							highlight_walls = not highlight_walls
+				#
+				terraindim_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				terraindim_selection_menu.draw(screen)
+				current_terrain_tile_dim = terraindim_selection_menu.get_selected_content()
 				#
 				if tile_img != None:
-					tile_img_preview = pygame.transform.scale(tile_img, (3*GRID_SIZE, 3*GRID_SIZE))
-					screen.blit(tile_img_preview, (488,389))
+					tile_img_preview = pygame.transform.scale(tile_img, (4*GRID_SIZE, 4*GRID_SIZE))
+					screen.blit(tile_img_preview, (480,392))
 				#
 				if arrow_left and not arrow_right:
 					terrain_selection_menu.move_left()
@@ -865,8 +912,23 @@ def main(raw_args=None):
 				elif arrow_down and not arrow_up:
 					terrain_selection_menu.move_down()
 				#
-				terrain_selection_menu.update(mouse_pos_screen, left_clicking)
-				terrain_selection_menu.draw(screen)
+				terrain_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				terrain_selection_menu.draw(screen, highlight_walls)
+				#
+				# draw terrain!
+				#
+				if point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution):
+					snap_x = int(mouse_pos_map.x/GRID_SIZE)
+					snap_y = int(mouse_pos_map.y/GRID_SIZE)
+					if snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
+						mouse_tile_highlight = pygame.Surface(Vector2(GRID_SIZE-1, GRID_SIZE-1))
+						mouse_tile_highlight.fill(Color.PAL_WHITE)
+						mouse_tile_highlight.set_alpha(40)
+						screen.blit(mouse_tile_highlight, Vector2(snap_x*GRID_SIZE+1, snap_y*GRID_SIZE+1) + current_window_offset, special_flags=pygame.BLEND_ALPHA_SDL2)
+						if leftclick_is_down:
+							editor_tilemap[snap_x,snap_y] = tile_k
+						elif rightclick_is_down:
+							editor_tilemap[snap_x,snap_y] = 0
 
 			#
 			# (3) LOCATIONS MODE
@@ -893,13 +955,13 @@ def main(raw_args=None):
 					event_selection_menu.decrease_index()
 					unit_selection_menu_explosion.decrease_index()
 				#
-				event_selection_menu.update(mouse_pos_screen, left_clicking)
+				event_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
 				event_selection_menu.draw(screen)
 				event_submode = event_selection_menu.get_selected_content()
 				if event_submode == 'explosion':
 					widget_explosionsmode_submenu_explosion.update(mouse_pos_screen, left_clicking)
 					widget_explosionsmode_submenu_explosion.draw(screen)
-					unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking)
+					unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking, return_pressed)
 					unit_selection_menu_explosion.draw(screen)
 				else:
 					unit_selection_menu_explosion.is_selected = False
@@ -931,6 +993,14 @@ def main(raw_args=None):
 				if escape_pressed:
 					current_gamestate     = previous_editor_state
 					previous_editor_state = GameState.EDITOR_SAVE
+
+			#
+			# adjust editor window offsets
+			#
+			digitinput_playerx.bounds = (0, digitinput_mapsizex.get_value() - 1)
+			digitinput_playery.bounds = (0, digitinput_mapsizey.get_value() - 1)
+			if not any_selectionmenu_selected and not any_textinput_selected:
+				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, editor_resolution)
 
 			#
 			# change editor mode
