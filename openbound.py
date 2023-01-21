@@ -21,7 +21,7 @@ from source.globals          import GRID_SIZE, PLAYER_RADIUS
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_map_bounds, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
-from source.selectionmenu    import MapMenu, UnitMenu
+from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
@@ -129,10 +129,12 @@ def main(raw_args=None):
 	editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
 
 	# other gfx
-	my_cursor = Cursor(cursor_img_fns)
-	#
+	my_cursor          = Cursor(cursor_img_fns)
 	map_selection_menu = None
+
 	#
+	#
+	#	IN-GAME WIDGETS
 	#
 	#
 	(tl, br) = (Vector2(32, RESOLUTION.y - 64), Vector2(160, RESOLUTION.y - 32))
@@ -142,6 +144,8 @@ def main(raw_args=None):
 	widget_playerselected.add_text(Vector2(80,  RESOLUTION.y - 54), 'Lives:', 'lives', font_dict['lifecount'])
 	widget_playerselected.add_text(Vector2(124, RESOLUTION.y - 54), '',   'lifecount', font_dict['lifecount'])
 	#
+	#
+	#	MAIN MENU WIDGETS
 	#
 	#
 	widget_titlepic = UIWidget()
@@ -169,6 +173,8 @@ def main(raw_args=None):
 	widget_title_options.add_text((tl+br)/2 + Vector2(0,1), 'Options', 'options', font_dict['large_w'], is_centered=True)
 	widget_title_options.add_return_message('options')
 	#
+	#
+	#	MAP SELECTION SCREEN WIDGETS
 	#
 	#
 	widget_mapselect_title = UIWidget()
@@ -231,6 +237,8 @@ def main(raw_args=None):
 	widget_mapselect_mapinfo.add_text(Vector2(424,328), 'content',      'mapsize',   font_dict['large_w'], max_width=128)
 	#
 	#
+	#	PAUSE MENU WIDGETS
+	#
 	#
 	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 176), Vector2(RESOLUTION.x/2 + 96, 208))
 	widget_pausemenu_return = UIWidget()
@@ -254,6 +262,8 @@ def main(raw_args=None):
 	widget_pausemenu_quit.add_return_message('quit')
 	#
 	#
+	#	MAIN MENU --> EDITOR TRANSITION WIDGETS
+	#
 	#
 	(tl, br) = (Vector2(RESOLUTION.x/2 - 96, 144), Vector2(RESOLUTION.x/2 + 96, 176))
 	widget_editmenu_new = UIWidget()
@@ -276,6 +286,8 @@ def main(raw_args=None):
 	widget_editmenu_back.add_text((tl+br)/2 + Vector2(0,1), 'Back', 'back', font_dict['large_w'], is_centered=True)
 	widget_editmenu_back.add_return_message('back')
 	#
+	#
+	#	MAP PROPERTIES MODE WIDGETS
 	#
 	#
 	tl = Vector2(148, 368 + 5)
@@ -308,12 +320,45 @@ def main(raw_args=None):
 	#
 	(tl, br) = (Vector2(208, 440 + VBUFF), Vector2(240, 464 - VBUFF))
 	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=5, max_chars=2)
-	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (1,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
-	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (1,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
+	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (0,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
+	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (0,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
 	#
-	draggable_playerstart = DraggableObject(DEFAULT_PLAYER_START*GRID_SIZE, PLAYER_RADIUS*2)
+	draggable_playerstart = DraggableObject(Vector2(DEFAULT_PLAYER_START.x*GRID_SIZE - GRID_SIZE/2, DEFAULT_PLAYER_START.y*GRID_SIZE - GRID_SIZE/2), PLAYER_RADIUS*2)
 	draggable_playerstart.add_image(player_img_fns[0])
 	#
+	#
+	#	TERRAIN MODE WIDGETS
+	#
+	#
+	(tl, br) = (Vector2(160, 368), Vector2(448, 464))
+	widget_terrainmode_text = UIWidget()
+	widget_terrainmode_text.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	(tl, br) = (Vector2(464, 368), Vector2(560, 464))
+	widget_terrainmode_text.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_terrainmode_text.add_text(Vector2((tl.x+br.x)/2, tl.y + 12), 'tilename',  'tilename', font_dict['small_w'], max_width=84, is_centered=True)
+	widget_terrainmode_text.add_text(Vector2(tl.x + 7, tl.y + 76),      'Walkable:', 't1',       font_dict['large_w'])
+	widget_terrainmode_text.add_text(Vector2(tl.x + 82, tl.y + 85),     'yes',       'walkable', font_dict['small_w'], is_centered=True)
+	#
+	(tl, br) = (Vector2(160, 368), Vector2(432, 464))
+	terrain_selection_menu = TerrainMenu(tl, tile_fns, font_dict['small_w'])
+	#
+	#
+	#	EXPLOSIONS MODE WIDGETS
+	#
+	#
+	(tl, br) = (Vector2(148, 368 + 5), Vector2(224, RESOLUTION.y-16))
+	widget_explosionsmode_text = UIWidget()
+	widget_explosionsmode_text.add_rect(Vector2(tl.x, tl.y+20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_explosionsmode_text.add_text(Vector2(tl.x+2, tl.y), 'Event type:', 't1', font_dict['large_w'])
+	event_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), ['explosion', 'add wall', 'remove wall', 'teleport'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	#
+	widget_explosionsmode_submenu_explosion = UIWidget()
+	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y+20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_explosionsmode_submenu_explosion.add_text(Vector2(tl.x+98, tl.y), 'Unit:', 't1', font_dict['large_w'])
+	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	#
+	#
+	#	VARIOUS EDITOR MODE WIDGETS
 	#
 	#
 	(tl, br) = (Vector2(16, RESOLUTION.y - 112 + 1), Vector2(128, RESOLUTION.y - 88 - 1))
@@ -366,19 +411,6 @@ def main(raw_args=None):
 	widget_editmode_test.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
 	widget_editmode_test.add_text((tl+br)/2 + Vector2(1,1), 'Test', 'test', font_dict['large_w'], is_centered=True)
 	widget_editmode_test.add_return_message('test')
-	#
-	#
-	#
-	(tl, br) = (Vector2(148, 368 + 5), Vector2(224, RESOLUTION.y-16))
-	widget_explosionsmode_text = UIWidget()
-	widget_explosionsmode_text.add_rect(Vector2(tl.x, tl.y+20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
-	widget_explosionsmode_text.add_text(Vector2(tl.x+2, tl.y), 'Event type:', 't1', font_dict['large_w'])
-	event_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), ['explosion', 'add wall', 'remove wall', 'teleport'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
-	#
-	widget_explosionsmode_submenu_explosion = UIWidget()
-	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y+20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
-	widget_explosionsmode_submenu_explosion.add_text(Vector2(tl.x+98, tl.y), 'Unit:', 't1', font_dict['large_w'])
-	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
 	#
 	#
@@ -712,9 +744,12 @@ def main(raw_args=None):
 		#   MAP EDITOR                                             #
 		#                                                          #
 		############################################################
+		#
+		#
 		elif current_gamestate in editor_states:
 			#
-			any_selectionmenu_selected = any([event_selection_menu.is_selected,
+			any_selectionmenu_selected = any([terrain_selection_menu.is_selected,
+			                                  event_selection_menu.is_selected,
 			                                  unit_selection_menu_explosion.is_selected])
 			any_textinput_selected = any([textinput_mapname.is_selected,
 			                              textinput_author.is_selected,
@@ -730,8 +765,8 @@ def main(raw_args=None):
 			#
 			current_map_bounds = Vector2(digitinput_mapsizex.get_value() * GRID_SIZE,
 			                             digitinput_mapsizey.get_value() * GRID_SIZE)
-			digitinput_playerx.bounds = (1, digitinput_mapsizex.get_value() - 1)
-			digitinput_playery.bounds = (1, digitinput_mapsizey.get_value() - 1)
+			digitinput_playerx.bounds = (0, digitinput_mapsizex.get_value() - 1)
+			digitinput_playery.bounds = (0, digitinput_mapsizey.get_value() - 1)
 			if not any_selectionmenu_selected and not any_textinput_selected:
 				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, editor_resolution)
 			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
@@ -767,7 +802,7 @@ def main(raw_args=None):
 				mw.draw(screen)
 
 			#
-			# MAP PROPERTIES MODE
+			# (1) MAP PROPERTIES MODE
 			#
 			if current_gamestate == GameState.EDITOR_PROPERTIES:
 				#
@@ -794,16 +829,53 @@ def main(raw_args=None):
 				draggable_player_released = draggable_playerstart.update(mouse_pos_map, left_clicking, left_released)
 				if not draggable_player_released and not draggable_playerstart.is_selected:
 					if not digitinput_playerx.is_selected and not digitinput_playery.is_selected:
-						draggable_playerstart.center_pos = Vector2(digitinput_playerx.get_value()*GRID_SIZE,
-						                                           digitinput_playery.get_value()*GRID_SIZE)
+						draggable_playerstart.center_pos = Vector2(digitinput_playerx.get_value()*GRID_SIZE + int(GRID_SIZE/2),
+						                                           digitinput_playery.get_value()*GRID_SIZE + int(GRID_SIZE/2))
 				elif draggable_player_released:
 					digitinput_playerx.reset_with_new_str(str(int(draggable_playerstart.center_pos.x/GRID_SIZE)))
 					digitinput_playery.reset_with_new_str(str(int(draggable_playerstart.center_pos.y/GRID_SIZE)))
 				draggable_playerstart.draw(screen, current_window_offset)
 
+			#
+			# (2) TERRAIN MODE
+			#
+			if current_gamestate == GameState.EDITOR_TERRAIN:
+				#
+				menu_widgets_2 = [widget_terrainmode_text]
+				#
+				(tile_k, tile_wall, tile_name, tile_img)      = terrain_selection_menu.get_selected_content()
+				widget_terrainmode_text.text_data['tilename'] = str(tile_name)
+				widget_terrainmode_text.text_data['walkable'] = 'no'*tile_wall + 'yes'*(tile_wall == False)
+				#
+				mw_output_msgs_2 = {}
+				for mw in menu_widgets_2:
+					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+				#
+				if tile_img != None:
+					tile_img_preview = pygame.transform.scale(tile_img, (3*GRID_SIZE, 3*GRID_SIZE))
+					screen.blit(tile_img_preview, (488,389))
+				#
+				if arrow_left and not arrow_right:
+					terrain_selection_menu.move_left()
+				elif arrow_right and not arrow_left:
+					terrain_selection_menu.move_right()
+				elif arrow_up and not arrow_down:
+					terrain_selection_menu.move_up()
+				elif arrow_down and not arrow_up:
+					terrain_selection_menu.move_down()
+				#
+				terrain_selection_menu.update(mouse_pos_screen, left_clicking)
+				terrain_selection_menu.draw(screen)
 
 			#
-			# EXPLOSIONS MODE
+			# (3) LOCATIONS MODE
+			#
+			if current_gamestate == GameState.EDITOR_LOCATIONS:
+				pass
+
+			#
+			# (4) EXPLOSIONS MODE
 			#
 			if current_gamestate == GameState.EDITOR_EXPLOSIONS:
 				#

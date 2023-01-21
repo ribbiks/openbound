@@ -22,16 +22,15 @@ class DraggableObject:
 		if grab_action:
 			if point_in_box_excl(mousepos, tl, br):
 				self.is_selected = True
-			else:
+			elif self.is_selected:
 				self.is_selected = False
-				released = True
-		if release_action:
+		if self.is_selected and release_action:
 			self.is_selected = False
 			released = True
 		#
 		if self.is_selected:
-			snap_x = int(mousepos.x/GRID_SIZE + 0.5) * GRID_SIZE
-			snap_y = int(mousepos.y/GRID_SIZE + 0.5) * GRID_SIZE
+			snap_x = int(mousepos.x/GRID_SIZE + 0.5) * GRID_SIZE - int(GRID_SIZE/2)
+			snap_y = int(mousepos.y/GRID_SIZE + 0.5) * GRID_SIZE - int(GRID_SIZE/2)
 			self.center_pos = Vector2(snap_x, snap_y)
 		return released
 

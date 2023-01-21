@@ -3,8 +3,10 @@ import pygame
 
 from pygame.math import Vector2
 
-from source.geometry import point_in_box_excl
-from source.misc_gfx import Color
+from source.geometry  import point_in_box_excl
+from source.misc_gfx  import Color
+from source.tile_data import TILE_DATA
+from source.util      import get_file_paths
 
 #
 # base menu class
@@ -140,3 +142,117 @@ class UnitMenu(SelectionMenu):
 			return None
 		else:
 			return self.content[self.index][0]
+
+#
+#
+#
+class TerrainMenu(SelectionMenu):
+	def __init__(self, pos, tilefn_list, font, num_rows=4, num_cols=12, row_height=24, col_width=24, sort_field=None):
+		#
+		super().__init__(pos, tilefn_list, font,
+		                 num_rows=num_rows,
+		                 row_height=row_height,
+		                 col_width=col_width,
+		                 sort_field=sort_field)
+		#
+		self.tile_fns = {}
+		for i,my_tile_fn in enumerate(tilefn_list):
+			if my_tile_fn:
+				self.tile_fns[i] = my_tile_fn
+		self.tile_keys = sorted(TILE_DATA.keys())
+		#
+		tile_dat = []
+		for k in self.tile_keys:
+			if k in self.tile_fns:
+				tile_dat.append((k, TILE_DATA[k][0], TILE_DATA[k][1], pygame.image.load(self.tile_fns[k]).convert()))
+			else:
+				tile_dat.append((k, TILE_DATA[k][0], TILE_DATA[k][1], None))
+		my_i = 0
+		self.content = []
+		if len(tile_dat):
+			self.content.append([])
+			for i in range(len(tile_dat)):
+				self.content[-1].append(tile_dat[i])
+				if (i+1)%num_cols == 0:
+					self.content.append([])
+		self.current_range = (0, min(self.num_rows, len(self.content)))
+		#
+		self.empty_message = 'no tiles found.'
+		self.is_selected   = False
+		self.col_width     = col_width
+		self.current_col   = 0
+
+	def get_selected_content(self):
+		if not self.content:
+			return None
+		else:
+			return self.content[self.index][self.current_col]
+
+	def move_up(self):
+		if self.is_selected and self.current_delay <= 0 and self.index > 0:
+			self.index -= 1
+			self.current_delay = 2
+			if self.index < self.current_range[0]:
+				self.current_range = (self.index, self.index + self.num_rows)
+
+	def move_down(self):
+		if self.is_selected and self.current_delay <= 0 and self.index < len(self.content)-1:
+			self.index += 1
+			self.current_delay = 2
+			self.current_col = min(self.current_col, len(self.content[self.index])-1)
+			if self.index >= self.current_range[1]:
+				self.current_range = (self.index + 1 - self.num_rows, self.index + 1)
+
+	def move_left(self):
+		if self.is_selected and self.current_delay <= 0 and self.current_col > 0:
+			self.current_col  -= 1
+			self.current_delay = 2
+
+	def move_right(self):
+		if self.is_selected and self.current_delay <= 0 and self.current_col < len(self.content[self.index])-1:
+			self.current_col  += 1
+			self.current_delay = 2
+
+	def update(self, mousepos, activation):
+		which_index = None
+		which_col   = None
+		for i in range(self.current_range[0], self.current_range[1]):
+			for j in range(len(self.content[i])):
+				tl = self.pos + Vector2(j*self.col_width, (i - self.current_range[0]) * self.row_height)
+				br = self.pos + Vector2((j+1)*self.col_width, (i - self.current_range[0] + 1) * self.row_height)
+				if point_in_box_excl(mousepos, tl, br):
+					which_index = i
+					which_col   = j
+					break
+			if which_index != None:
+				break
+		output_bool = False
+		if activation and which_index != None:
+			self.index = which_index
+			self.current_col = which_col
+			self.is_selected = True
+			output_bool = True
+		elif activation:
+			self.is_selected = False
+		if self.current_delay > 0:
+			self.current_delay -= 1
+		return output_bool
+
+	def draw(self, screen):
+		if not self.content and self.empty_message:
+			offset = Vector2(4,4)
+			self.font.render(screen, self.empty_message, self.pos + offset)
+		else:
+			tl = self.pos + Vector2(self.current_col*self.col_width, (self.index - self.current_range[0]) * self.row_height)
+			br = self.pos + Vector2((self.current_col+1)*self.col_width, (self.index - self.current_range[0] + 1) * self.row_height)
+			my_rect = pygame.Rect(tl, br-tl)
+			if self.is_selected:
+				pygame.draw.rect(screen, Color.PAL_BLUE_3, my_rect, border_radius=2)
+			else:
+				pygame.draw.rect(screen, Color.PAL_BLUE_4, my_rect, border_radius=2)
+			#
+			for i in range(self.current_range[0], self.current_range[1]):
+				for j in range(len(self.content[i])):
+					offset = Vector2(j*self.col_width + 4, (i - self.current_range[0])*self.row_height + 4)
+					if self.content[i][j][3] != None:
+						screen.blit(self.content[i][j][3], self.pos + offset)
