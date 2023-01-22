@@ -23,6 +23,7 @@ from source.globals          import GRID_SIZE, PLAYER_RADIUS
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_map_bounds, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
+from source.resizablebox     import ResizableBox
 from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
 from source.tile_data        import TILE_DATA
@@ -360,6 +361,12 @@ def main(raw_args=None):
 	terrain_selection_menu = TerrainMenu(tl, tile_fns, font_dict['small_w'])
 	#
 	#
+	#	LOCATIONS MODE WIDGETS
+	#
+	#
+	test_box = ResizableBox(Vector2(64, 64), Vector2(128, 128), '1-12345678', font_dict['small_w'])
+	#
+	#
 	#	EXPLOSIONS MODE WIDGETS
 	#
 	#
@@ -569,6 +576,9 @@ def main(raw_args=None):
 			menu_widgets = [widget_titlepic, widget_title_play, widget_title_editor, widget_title_options]
 			for mw in menu_widgets:
 				mw.draw(screen)
+			#
+			test_box.update(mouse_pos_map, left_clicking, left_released)
+			test_box.draw(screen, current_window_offset)
 			#
 			if current_gamestate == GameState.START_MENU:
 				mw_output_msgs = {}
