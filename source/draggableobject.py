@@ -2,8 +2,10 @@ import pygame
 
 from pygame.math import Vector2
 
-from source.geometry import point_in_box_excl
+from source.geometry import point_in_box_excl, value_clamp
 from source.globals  import GRID_SIZE
+
+CLICK_BUFF = 16
 
 class DraggableObject:
 	def __init__(self, center_pos, radius, grid_snap=GRID_SIZE, pos_offset=Vector2(-int(GRID_SIZE/2), -int(GRID_SIZE/2))):
@@ -18,9 +20,9 @@ class DraggableObject:
 	def add_image(self, img_fn):
 		self.images.append(pygame.image.load(img_fn).convert_alpha())
 
-	def update(self, mousepos, grab_action, release_action):
-		tl = Vector2(self.center_pos.x - self.radius, self.center_pos.y - self.radius)
-		br = Vector2(self.center_pos.x + self.radius, self.center_pos.y + self.radius)
+	def update(self, mousepos, grab_action, release_action, limits):
+		tl = Vector2(self.center_pos.x - self.radius - CLICK_BUFF, self.center_pos.y - self.radius - CLICK_BUFF)
+		br = Vector2(self.center_pos.x + self.radius + CLICK_BUFF, self.center_pos.y + self.radius + CLICK_BUFF)
 		self.is_mouseover = point_in_box_excl(mousepos, tl, br)
 		released = False
 		if grab_action:
@@ -33,8 +35,10 @@ class DraggableObject:
 			released = True
 		#
 		if self.is_selected:
-			snap_x = int(mousepos.x/self.grid_snap + 0.5) * self.grid_snap
-			snap_y = int(mousepos.y/self.grid_snap + 0.5) * self.grid_snap
+			snap_x = int((mousepos.x - self.pos_offset.x)/self.grid_snap + 0.5) * self.grid_snap
+			snap_y = int((mousepos.y - self.pos_offset.y)/self.grid_snap + 0.5) * self.grid_snap
+			snap_x = value_clamp(snap_x, self.radius, limits.x - self.radius - self.pos_offset.x)
+			snap_y = value_clamp(snap_y, self.radius, limits.y - self.radius - self.pos_offset.y)
 			self.center_pos = Vector2(snap_x, snap_y) + self.pos_offset
 		return released
 

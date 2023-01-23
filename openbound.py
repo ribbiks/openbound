@@ -334,7 +334,7 @@ def main(raw_args=None):
 	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (0,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
 	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (0,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
 	#
-	draggable_playerstart = DraggableObject(Vector2(DEFAULT_PLAYER_START.x*GRID_SIZE - GRID_SIZE/2, DEFAULT_PLAYER_START.y*GRID_SIZE - GRID_SIZE/2), PLAYER_RADIUS*2)
+	draggable_playerstart = DraggableObject(Vector2(DEFAULT_PLAYER_START.x*GRID_SIZE - GRID_SIZE/2, DEFAULT_PLAYER_START.y*GRID_SIZE - GRID_SIZE/2), PLAYER_RADIUS)
 	draggable_playerstart.add_image(player_img_fns[0])
 	#
 	#
@@ -806,6 +806,10 @@ def main(raw_args=None):
 		#
 		elif current_gamestate in editor_states:
 			#
+			mouse_in_editor_region = point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution)
+			dragaction_activation  = left_clicking and mouse_in_editor_region
+			dragaction_released    = left_released
+			#
 			any_selectionmenu_selected = any([terraindim_selection_menu.is_selected,
 			                                  terrain_selection_menu.is_selected,
 			                                  currentob_selection_menu.is_selected,
@@ -835,6 +839,11 @@ def main(raw_args=None):
 			elif di_y > editor_prevtilemapdim[1]:
 				editor_tilemap = np.pad(editor_tilemap, [(0,0), (0,di_y-editor_prevtilemapdim[1])])
 			editor_prevtilemapdim = editor_tilemap.shape
+			#
+			# shrink area that mapobjects can be placed/dragged into so that they can't overlap editor elements at the bottom
+			#
+			mapobject_limits = Vector2(editor_tilemap.shape[0]*GRID_SIZE,
+			                           int(min(editor_tilemap.shape[1]*GRID_SIZE, 352 - current_window_offset.y)/GRID_SIZE)*GRID_SIZE)
 			#
 			editor_tiledrawer.draw(screen, current_window_offset, editor_tilemap, highlight_walls)
 			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
@@ -894,7 +903,7 @@ def main(raw_args=None):
 					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
 					mw.draw(screen)
 				#
-				draggable_player_released = draggable_playerstart.update(mouse_pos_map, left_clicking, left_released)
+				draggable_player_released = draggable_playerstart.update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
 				if not draggable_player_released and not draggable_playerstart.is_selected:
 					if not digitinput_playerx.is_selected and not digitinput_playery.is_selected:
 						draggable_playerstart.center_pos = Vector2(digitinput_playerx.get_value()*GRID_SIZE + int(GRID_SIZE/2),
@@ -946,7 +955,7 @@ def main(raw_args=None):
 				#
 				# draw terrain!
 				#
-				if point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution):
+				if mouse_in_editor_region:
 					snap_x = int(mouse_pos_map.x/GRID_SIZE)
 					snap_y = int(mouse_pos_map.y/GRID_SIZE)
 					if snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
@@ -980,11 +989,11 @@ def main(raw_args=None):
 							currentob_selection_menu.index = num_obs
 							currentob_selection_menu.current_range = (max(num_obs+1-currentob_selection_menu.num_rows, 0), num_obs+1)
 							#
-							# editor_obdata[i] = [revive_object, startloc, endloc, list_of_loc_objects]
+							# editor_obdata[i] = [revive_object, startloc, endloc, list_of_exploding_locs]
 							#
 							new_pos = (int(current_window_offset.x/GRID_SIZE), int(current_window_offset.y/GRID_SIZE))
 							editor_obdata.append([DraggableObject(Vector2(new_pos[0] + 2*GRID_SIZE, new_pos[1] + 2*GRID_SIZE),
-							                      	              PLAYER_RADIUS*2,
+							                      	              PLAYER_RADIUS,
 							                                      int(GRID_SIZE/2),
 							                                      Vector2(0,0)),
 							                      ResizableBox(Vector2(new_pos[0] + 4*GRID_SIZE, new_pos[1]),
@@ -1032,25 +1041,24 @@ def main(raw_args=None):
 				currentob_selection_menu.draw(screen)
 				#
 				if editor_currentobnum != None:
-					loc_limits = Vector2(editor_tilemap.shape[0]*GRID_SIZE, editor_tilemap.shape[1]*GRID_SIZE)
 					locs_mouseover  = [n.is_mouseover for n in editor_obdata[editor_currentobnum][3]]
 					special_locs_mouseover = [n.is_mouseover for n in editor_obdata[editor_currentobnum][:3]]
 					#
 					# draw locs for currently selected ob
 					#
 					for exploding_loc in editor_obdata[editor_currentobnum][3]:
-						exploding_loc.update(mouse_pos_map, left_clicking, left_released, loc_limits)
-						exploding_loc.draw(screen, current_window_offset)
-					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, left_clicking, left_released)
-					editor_obdata[editor_currentobnum][1].update(mouse_pos_map, left_clicking, left_released, loc_limits)
-					editor_obdata[editor_currentobnum][2].update(mouse_pos_map, left_clicking, left_released, loc_limits)
-					editor_obdata[editor_currentobnum][1].draw(screen, current_window_offset)
-					editor_obdata[editor_currentobnum][2].draw(screen, current_window_offset)
+						exploding_loc.update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+						exploding_loc.draw(screen, current_window_offset, mouse_in_editor_region)
+					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+					editor_obdata[editor_currentobnum][1].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+					editor_obdata[editor_currentobnum][2].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+					editor_obdata[editor_currentobnum][1].draw(screen, current_window_offset, mouse_in_editor_region)
+					editor_obdata[editor_currentobnum][2].draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][0].draw(screen, current_window_offset)
 					#
 					# want to delete a loc?
 					#
-					if right_clicking and point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution) and any(locs_mouseover):
+					if right_clicking and mouse_in_editor_region and any(locs_mouseover):
 						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
 						smallest_loc = sorted(smallest_loc)[0][1]
 						del editor_obdata[editor_currentobnum][3][smallest_loc]
@@ -1060,10 +1068,10 @@ def main(raw_args=None):
 					#
 					# want to add a new loc?
 					#
-					if left_clicking and point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution) and not any(locs_mouseover+special_locs_mouseover):
+					if left_clicking and mouse_in_editor_region and not any(locs_mouseover+special_locs_mouseover):
 						candidate_tl = Vector2(int(mouse_pos_map.x/GRID_SIZE)*GRID_SIZE, int(mouse_pos_map.y/GRID_SIZE)*GRID_SIZE)
 						candidate_br = Vector2(candidate_tl.x+16, candidate_tl.y+16)
-						if candidate_tl.x >= 0 and candidate_tl.y >= 0 and candidate_br.x <= loc_limits.x and candidate_br.y <= loc_limits.y:
+						if candidate_tl.x >= 0 and candidate_tl.y >= 0 and candidate_br.x <= mapobject_limits.x and candidate_br.y <= mapobject_limits.y:
 							editor_obdata[editor_currentobnum][3].append(ResizableBox(candidate_tl, candidate_br, str(len(editor_obdata[editor_currentobnum][3])+1), font_dict['small_w']))
 							# set to bottomleft-draggable
 							editor_obdata[editor_currentobnum][3][-1].is_mouseover   = True

@@ -22,9 +22,10 @@ class Color:
 	OB_REVIVE   = (220, 220, 220)	#
 	LOC_BG      = (150, 150, 150)	#
 	LIFECOUNT   = (163,  70, 163)
-	PAL_BLUE_1  = (181, 245, 236)
+	PAL_BLUE_1  = (222, 245, 246)
 	PAL_BLUE_2  = ( 91, 172, 227)
-	PAL_BLUE_3  = ( 99, 106, 184)
+	PAL_BLUE_2B = (136, 143, 243)
+	PAL_BLUE_3  = ( 97, 104, 182)
 	PAL_BLUE_4  = ( 87,  65, 117)
 	PAL_BLUE_5  = ( 47,  35,  56)
 	PAL_WHITE   = (255, 255, 255)
@@ -37,12 +38,12 @@ class Color:
 	PAL_YEL_6   = (115,  56,  62)
 	PAL_GREEN_1 = (237, 245, 247)
 	PAL_GREEN_2 = (162, 237,  23)
-	PAL_GREEN_3 = ( 62, 184,  14)
+	PAL_GREEN_3 = ( 57, 180,  12)
 	PAL_GREEN_4 = (  0, 112,  17)
-	PAL_RED_1   = (255, 237, 237)
+	PAL_RED_1   = (255, 232, 232)
 	PAL_RED_2   = (255, 130, 130)
-	PAL_RED_3   = (227,  60,  54)
-	PAL_RED_4   = (145,  10,  17)
+	PAL_RED_3   = (217,  55,  50)
+	PAL_RED_4   = (135,  10,  17)
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+2, gridsize):
