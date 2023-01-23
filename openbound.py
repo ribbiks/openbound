@@ -67,7 +67,7 @@ def main(raw_args=None):
 	MAP_DIR  = os.path.join(py_dir, 'maps')
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
-	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png'])
+	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png', 'sq16_gray.png'])
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
 	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
 	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png','scourge1.png','scourge2.png','scourge3.png','scourge4.png','scourge5.png'])
@@ -135,6 +135,8 @@ def main(raw_args=None):
 	editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
 	editor_prevtilemapdim = editor_tilemap.shape
 	editor_tiledrawer     = TileMap(tile_fns)
+	editor_obdata         = []
+	editor_currentobnum   = None
 
 	# other gfx
 	my_cursor          = Cursor(cursor_img_fns)
@@ -364,7 +366,26 @@ def main(raw_args=None):
 	#	LOCATIONS MODE WIDGETS
 	#
 	#
-	test_box = ResizableBox(Vector2(64, 64), Vector2(128, 128), '1-12345678', font_dict['small_w'])
+	(tl, br) = (Vector2(148, 368 + 5), Vector2(224, RESOLUTION.y-16))
+	widget_locationsmode_text = UIWidget()
+	widget_locationsmode_text.add_rect(Vector2(tl.x, tl.y+20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
+	widget_locationsmode_text.add_text(Vector2(tl.x+2, tl.y), 'Current ob:', 't1', font_dict['large_w'])
+	currentob_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), [], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	currentob_selection_menu.empty_message = ''
+	#
+	(tl, br) = (Vector2(240, 392), Vector2(302, 424))
+	widget_locationsmode_addnew = UIWidget()
+	widget_locationsmode_addnew.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_locationsmode_addnew.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_locationsmode_addnew.add_text((tl+br)/2 + Vector2(1,1), 'New Ob', 'addnew_ob', font_dict['large_w'], is_centered=True)
+	widget_locationsmode_addnew.add_return_message('addnew_ob')
+	#
+	(tl, br) = (Vector2(240, 432), Vector2(302, 464))
+	widget_locationsmode_delete = UIWidget()
+	widget_locationsmode_delete.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_4, border_radius=14, mouseover_condition=(True,False))
+	widget_locationsmode_delete.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
+	widget_locationsmode_delete.add_text((tl+br)/2 + Vector2(1,1), 'Delete', 'delete_ob', font_dict['large_w'], is_centered=True)
+	widget_locationsmode_delete.add_return_message('delete_ob')
 	#
 	#
 	#	EXPLOSIONS MODE WIDGETS
@@ -577,9 +598,6 @@ def main(raw_args=None):
 			for mw in menu_widgets:
 				mw.draw(screen)
 			#
-			test_box.update(mouse_pos_map, left_clicking, left_released)
-			test_box.draw(screen, current_window_offset)
-			#
 			if current_gamestate == GameState.START_MENU:
 				mw_output_msgs = {}
 				for mw in menu_widgets:
@@ -790,6 +808,7 @@ def main(raw_args=None):
 			#
 			any_selectionmenu_selected = any([terraindim_selection_menu.is_selected,
 			                                  terrain_selection_menu.is_selected,
+			                                  currentob_selection_menu.is_selected,
 			                                  event_selection_menu.is_selected,
 			                                  unit_selection_menu_explosion.is_selected])
 			any_textinput_selected = any([textinput_mapname.is_selected,
@@ -944,7 +963,113 @@ def main(raw_args=None):
 			# (3) LOCATIONS MODE
 			#
 			if current_gamestate == GameState.EDITOR_LOCATIONS:
-				pass
+				#
+				menu_widgets_2 = [widget_locationsmode_text,
+				                  widget_locationsmode_addnew,
+				                  widget_locationsmode_delete]
+				#
+				mw_output_msgs_2 = {}
+				for mw in menu_widgets_2:
+					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
+					mw.draw(screen)
+				for msg in mw_output_msgs_2:
+					if not transition_alpha:
+						if msg == 'addnew_ob':
+							num_obs = len(currentob_selection_menu.content)
+							currentob_selection_menu.content.append(('Obstacle '+str(num_obs+1),))
+							currentob_selection_menu.index = num_obs
+							currentob_selection_menu.current_range = (max(num_obs+1-currentob_selection_menu.num_rows, 0), num_obs+1)
+							#
+							# editor_obdata[i] = [revive_object, startloc, endloc, list_of_loc_objects]
+							#
+							new_pos = (int(current_window_offset.x/GRID_SIZE), int(current_window_offset.y/GRID_SIZE))
+							editor_obdata.append([DraggableObject(Vector2(new_pos[0] + 2*GRID_SIZE, new_pos[1] + 2*GRID_SIZE),
+							                      	              PLAYER_RADIUS*2,
+							                                      int(GRID_SIZE/2),
+							                                      Vector2(0,0)),
+							                      ResizableBox(Vector2(new_pos[0] + 4*GRID_SIZE, new_pos[1]),
+								                               Vector2(new_pos[0] + 8*GRID_SIZE, new_pos[1] + 4*GRID_SIZE),
+								                               'start',
+								                               font_dict['small_w'],
+								                               box_color=Color.PAL_GREEN_4,
+								                               box_color_highlight=Color.PAL_GREEN_3,
+								                               line_color=Color.PAL_GREEN_3,
+								                               line_color_highlight=Color.PAL_GREEN_1),
+							                      ResizableBox(Vector2(new_pos[0] + 8*GRID_SIZE,  new_pos[1]),
+								                               Vector2(new_pos[0] + 12*GRID_SIZE, new_pos[1] + 4*GRID_SIZE),
+								                               'end',
+								                               font_dict['small_w'],
+								                               box_color=Color.PAL_RED_4,
+								                               box_color_highlight=Color.PAL_RED_3,
+								                               line_color=Color.PAL_RED_3,
+								                               line_color_highlight=Color.PAL_RED_1),
+							                      []])
+							editor_obdata[-1][0].add_image(player_img_fns[1])
+						elif msg == 'delete_ob' and currentob_selection_menu.content:
+							obnum_were_deleting = int(currentob_selection_menu.content[currentob_selection_menu.index][0].split(' ')[1])
+							del currentob_selection_menu.content[currentob_selection_menu.index]
+							del editor_obdata[currentob_selection_menu.index]
+							for i in range(len(currentob_selection_menu.content)):
+								my_obnum = int(currentob_selection_menu.content[i][0].split(' ')[1])
+								if my_obnum > obnum_were_deleting:
+									currentob_selection_menu.content[i] = ('Obstacle '+str(my_obnum-1),)
+							currentob_selection_menu.index = max(currentob_selection_menu.index-1, 0)
+							range_start = max(currentob_selection_menu.current_range[0]-1, 0)
+							range_end   = min(range_start+currentob_selection_menu.num_rows, len(currentob_selection_menu.content))
+							currentob_selection_menu.current_range = (range_start, range_end)
+				#
+				if arrow_down and not arrow_up:
+					currentob_selection_menu.increase_index()
+				elif arrow_up and not arrow_down:
+					currentob_selection_menu.decrease_index()
+				#
+				currentob_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				if not currentob_selection_menu.content:
+					editor_obdata       = []
+					editor_currentobnum = None
+				else:
+					editor_currentobnum = currentob_selection_menu.index
+				currentob_selection_menu.draw(screen)
+				#
+				if editor_currentobnum != None:
+					loc_limits = Vector2(editor_tilemap.shape[0]*GRID_SIZE, editor_tilemap.shape[1]*GRID_SIZE)
+					locs_mouseover  = [n.is_mouseover for n in editor_obdata[editor_currentobnum][3]]
+					special_locs_mouseover = [n.is_mouseover for n in editor_obdata[editor_currentobnum][:3]]
+					#
+					# draw locs for currently selected ob
+					#
+					for exploding_loc in editor_obdata[editor_currentobnum][3]:
+						exploding_loc.update(mouse_pos_map, left_clicking, left_released, loc_limits)
+						exploding_loc.draw(screen, current_window_offset)
+					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, left_clicking, left_released)
+					editor_obdata[editor_currentobnum][1].update(mouse_pos_map, left_clicking, left_released, loc_limits)
+					editor_obdata[editor_currentobnum][2].update(mouse_pos_map, left_clicking, left_released, loc_limits)
+					editor_obdata[editor_currentobnum][1].draw(screen, current_window_offset)
+					editor_obdata[editor_currentobnum][2].draw(screen, current_window_offset)
+					editor_obdata[editor_currentobnum][0].draw(screen, current_window_offset)
+					#
+					# want to delete a loc?
+					#
+					if right_clicking and point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution) and any(locs_mouseover):
+						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
+						smallest_loc = sorted(smallest_loc)[0][1]
+						del editor_obdata[editor_currentobnum][3][smallest_loc]
+						for exploding_loc in editor_obdata[editor_currentobnum][3]:
+							if int(exploding_loc.text) > smallest_loc+1:
+								exploding_loc.text = str(int(exploding_loc.text)-1)
+					#
+					# want to add a new loc?
+					#
+					if left_clicking and point_in_box_excl(mouse_pos_screen, Vector2(0,0), editor_resolution) and not any(locs_mouseover+special_locs_mouseover):
+						candidate_tl = Vector2(int(mouse_pos_map.x/GRID_SIZE)*GRID_SIZE, int(mouse_pos_map.y/GRID_SIZE)*GRID_SIZE)
+						candidate_br = Vector2(candidate_tl.x+16, candidate_tl.y+16)
+						if candidate_tl.x >= 0 and candidate_tl.y >= 0 and candidate_br.x <= loc_limits.x and candidate_br.y <= loc_limits.y:
+							editor_obdata[editor_currentobnum][3].append(ResizableBox(candidate_tl, candidate_br, str(len(editor_obdata[editor_currentobnum][3])+1), font_dict['small_w']))
+							# set to bottomleft-draggable
+							editor_obdata[editor_currentobnum][3][-1].is_mouseover   = True
+							editor_obdata[editor_currentobnum][3][-1].is_selected    = True
+							editor_obdata[editor_currentobnum][3][-1].drag_mode      = (0,0,1,1)
+							editor_obdata[editor_currentobnum][3][-1].edges_selected = (0,0,1,1)
 
 			#
 			# (4) EXPLOSIONS MODE

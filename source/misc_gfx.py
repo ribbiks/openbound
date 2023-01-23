@@ -35,6 +35,14 @@ class Color:
 	PAL_YEL_4   = (207, 120,  76)
 	PAL_YEL_5   = (173,  88,  69)
 	PAL_YEL_6   = (115,  56,  62)
+	PAL_GREEN_1 = (237, 245, 247)
+	PAL_GREEN_2 = (162, 237,  23)
+	PAL_GREEN_3 = ( 62, 184,  14)
+	PAL_GREEN_4 = (  0, 112,  17)
+	PAL_RED_1   = (255, 237, 237)
+	PAL_RED_2   = (255, 130, 130)
+	PAL_RED_3   = (227,  60,  54)
+	PAL_RED_4   = (145,  10,  17)
 
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+2, gridsize):

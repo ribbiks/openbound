@@ -28,7 +28,12 @@ class ResizableBox:
 		self.line_color           = line_color
 		self.line_color_highlight = line_color_highlight
 
-	def update(self, mousepos, grab_action, release_action):
+	def get_area(self):
+		dx = self.br.x - self.tl.x
+		dy = self.br.y - self.tl.y
+		return dx*dy
+
+	def update(self, mousepos, grab_action, release_action, limits):
 		self.is_mouseover = point_in_box_excl(mousepos, self.tl, self.br)
 		released = False
 		if grab_action:
@@ -68,25 +73,25 @@ class ResizableBox:
 			#
 			if self.drag_mode[0]:
 				if self.br.x - snap_x >= GRID_SIZE:
-					self.tl = Vector2(snap_x, self.tl.y)
+					self.tl = Vector2(max(snap_x,0), self.tl.y)
 			#
 			# drag top
 			#
 			if self.drag_mode[1]:
 				if self.br.y - snap_y >= GRID_SIZE:
-					self.tl = Vector2(self.tl.x, snap_y)
+					self.tl = Vector2(self.tl.x, max(snap_y,0))
 			#
 			# drag right
 			#
 			if self.drag_mode[2]:
 				if snap_x - self.tl.x >= GRID_SIZE:
-					self.br = Vector2(snap_x, self.br.y)
+					self.br = Vector2(min(snap_x,limits.x), self.br.y)
 			#
 			# drag bottom
 			#
 			if self.drag_mode[3]:
 				if snap_y - self.tl.y >= GRID_SIZE:
-					self.br = Vector2(self.br.x, snap_y)
+					self.br = Vector2(self.br.x, min(snap_y,limits.y))
 			#
 			# drag entire box
 			#
@@ -95,9 +100,11 @@ class ResizableBox:
 				new_tl = Vector2(int(new_tl.x/GRID_SIZE + 0.5) * GRID_SIZE, int(new_tl.y/GRID_SIZE + 0.5) * GRID_SIZE)
 				dtl    = new_tl - self.tl
 				dbox   = self.br - self.tl
-				self.tl = Vector2(new_tl.x, new_tl.y)
-				self.br = self.tl + dbox
-				self.clickdown_pos += dtl
+				new_br = new_tl + dbox
+				if new_tl.x >= 0 and new_tl.y >= 0 and new_br.x <= limits.x and new_br.y <= limits.y:
+					self.tl = Vector2(new_tl.x, new_tl.y)
+					self.br = Vector2(new_br.x, new_br.y)
+					self.clickdown_pos += dtl
 				self.dragging_whole = True
 		return released
 
@@ -105,34 +112,34 @@ class ResizableBox:
 		box_surface = pygame.Surface(screen.get_size())
 		tl = Vector2(self.tl.x + 1, self.tl.y + 1)
 		br = Vector2(self.br.x - 1, self.br.y - 1)
-		my_rect = pygame.Rect(tl, br - tl)
+		my_rect = pygame.Rect(tl + offset, br - tl)
 		#
-		col = Color.PAL_YEL_4
+		col = self.box_color
 		if self.dragging_whole or self.is_mouseover or any(self.drag_mode):
-			col = Color.PAL_YEL_3
+			col = self.box_color_highlight
 		pygame.draw.rect(box_surface, col, my_rect)
 		box_surface.set_alpha(96)
 		screen.blit(box_surface, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
 		#
-		col = Color.PAL_YEL_3
+		col = self.line_color
 		if self.dragging_whole == False and (self.edges_selected[0] or self.drag_mode[0]):
-			col = Color.PAL_YEL_1
-		pygame.draw.line(screen, col, Vector2(self.tl.x, self.br.y-1), self.tl, width=2)
+			col = self.line_color_highlight
+		pygame.draw.line(screen, col, Vector2(self.tl.x, self.br.y-1) + offset, self.tl + offset, width=2)
 		#
-		col = Color.PAL_YEL_3
+		col = self.line_color
 		if self.dragging_whole == False and (self.edges_selected[1] or self.drag_mode[1]):
-			col = Color.PAL_YEL_1
-		pygame.draw.line(screen, col, self.tl, Vector2(self.br.x-1, self.tl.y), width=2)
+			col = self.line_color_highlight
+		pygame.draw.line(screen, col, self.tl + offset, Vector2(self.br.x-1, self.tl.y) + offset, width=2)
 		#
-		col = Color.PAL_YEL_3
+		col = self.line_color
 		if self.dragging_whole == False and (self.edges_selected[2] or self.drag_mode[2]):
-			col = Color.PAL_YEL_1
-		pygame.draw.line(screen, col, Vector2(self.br.x-1, self.tl.y), self.br - Vector2(1,1), width=2)
+			col = self.line_color_highlight
+		pygame.draw.line(screen, col, Vector2(self.br.x-1, self.tl.y) + offset, self.br - Vector2(1,1) + offset, width=2)
 		#
-		col = Color.PAL_YEL_3
+		col = self.line_color
 		if self.dragging_whole == False and (self.edges_selected[3] or self.drag_mode[3]):
-			col = Color.PAL_YEL_1
-		pygame.draw.line(screen, col, self.br - Vector2(0,1), Vector2(self.tl.x, self.br.y-1), width=2)
+			col = self.line_color_highlight
+		pygame.draw.line(screen, col, self.br - Vector2(0,1) + offset, Vector2(self.tl.x, self.br.y-1) + offset, width=2)
 		#
 		text_width = self.br.x - self.tl.x - 4
 		self.font.render(screen, self.text, self.tl + offset + Vector2(4,4), max_width=text_width)
