@@ -318,10 +318,10 @@ def main(raw_args=None):
 	#
 	VBUFF    = 2
 	(tl, br) = (Vector2(208, 368 + VBUFF), Vector2(384, 392 - VBUFF))
-	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=100)
+	textinput_mapname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,7), max_chars=100)
 	#
 	(tl, br) = (Vector2(208, 392 + VBUFF), Vector2(384, 416 - VBUFF))
-	textinput_author      = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,6), max_chars=100)
+	textinput_author      = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,7), max_chars=100)
 	textinput_description = TextInput(Vector2(tl.x+192, tl.y), Vector2(br.x+176, br.y+48), font_dict['small_w'], char_offset=Vector2(4,4), num_rows=7, max_chars=500)
 	#
 	(tl, br) = (Vector2(208, 416 + VBUFF), Vector2(240, 440 - VBUFF))
@@ -386,6 +386,24 @@ def main(raw_args=None):
 	widget_locationsmode_delete.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_3, border_radius=14, mouseover_condition=(False,True))
 	widget_locationsmode_delete.add_text((tl+br)/2 + Vector2(1,1), 'Delete', 'delete_ob', font_dict['large_w'], is_centered=True)
 	widget_locationsmode_delete.add_return_message('delete_ob')
+	#
+	(tl, br) = (Vector2(320, 392), Vector2(368, 424))
+	widget_locationsmode_obselectedtext = UIWidget()
+	widget_locationsmode_obselectedtext.add_rect(Vector2(tl.x+48, tl.y-4), Vector2(br.x+48, br.y+4), Color.PAL_BLUE_5, border_radius=4)
+	widget_locationsmode_obselectedtext.add_rect(Vector2(tl.x+152, tl.y-4), Vector2(br.x+152, br.y+4), Color.PAL_BLUE_5, border_radius=4)
+	widget_locationsmode_obselectedtext.add_text(Vector2(tl.x+2, tl.y+9),   'Move:',  't1', font_dict['large_w'])
+	widget_locationsmode_obselectedtext.add_text(Vector2(tl.x+106, tl.y+9), 'Lives:', 't2', font_dict['large_w'])
+	widget_locationsmode_obselectedtext.add_text(Vector2(tl.x+2, tl.y+49),  'Music:', 't3', font_dict['large_w'])
+	#
+	obinfo_move_menu = UnitMenu(Vector2(tl.x+48+4, tl.y), ['no move', 'to revive'], font_dict['small_w'], num_rows=2, row_height=16, col_width=40)
+	#
+	obinfo_life_menu = UnitMenu(Vector2(tl.x+152+4, tl.y), ['add lives', 'set lives'], font_dict['small_w'], num_rows=2, row_height=16, col_width=40)
+	#
+	(tl, br) = (Vector2(368, 432+6), Vector2(560, 464-6))
+	textinput_musicname = TextInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], char_offset=Vector2(6,7), max_chars=100)
+	#
+	(tl, br) = (Vector2(528, 392+6), Vector2(560, 424-6))
+	digitinput_oblives = DigitInput(Vector2(tl.x, tl.y), Vector2(br.x, br.y), font_dict['small_w'], (0,9999), char_offset=Vector2(6,7), default_val=0, max_chars=4)
 	#
 	#
 	#	EXPLOSIONS MODE WIDGETS
@@ -582,6 +600,9 @@ def main(raw_args=None):
 			rightclick_is_down = True
 		if right_released:
 			rightclick_is_down = False
+		#
+		inc_menus_key = arrow_down and not arrow_up
+		dec_menus_key = arrow_up and not arrow_down
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
@@ -669,11 +690,7 @@ def main(raw_args=None):
 				mw_output_msgs[mw.update(mouse_pos_screen, left_clicking)] = True
 				mw.draw(screen)
 			#
-			if arrow_down and not arrow_up:
-				map_selection_menu.increase_index()
-			elif arrow_up and not arrow_down:
-				map_selection_menu.decrease_index()
-			map_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+			map_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 			map_selection_menu.draw(screen)
 			#
 			for msg in mw_output_msgs:
@@ -747,9 +764,9 @@ def main(raw_args=None):
 
 			# Terrain / Obstacles ------------------------------------ #
 			world_map.draw(screen, current_window_offset, draw_tiles=True,
-			                                      draw_obs=False,
-			                                      draw_walkable=False,
-			                                      draw_pathing=False)
+			                                              draw_obs=False,
+			                                              draw_walkable=False,
+			                                              draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
 			my_player.draw(screen, current_window_offset, draw_bounding_box=True)
@@ -813,6 +830,8 @@ def main(raw_args=None):
 			any_selectionmenu_selected = any([terraindim_selection_menu.is_selected,
 			                                  terrain_selection_menu.is_selected,
 			                                  currentob_selection_menu.is_selected,
+			                                  obinfo_move_menu.is_selected,
+			                                  obinfo_life_menu.is_selected,
 			                                  event_selection_menu.is_selected,
 			                                  unit_selection_menu_explosion.is_selected])
 			any_textinput_selected = any([textinput_mapname.is_selected,
@@ -823,7 +842,9 @@ def main(raw_args=None):
 			                              digitinput_mapsizex.is_selected,
 			                              digitinput_mapsizey.is_selected,
 			                              digitinput_playerx.is_selected,
-			                              digitinput_playery.is_selected])
+			                              digitinput_playery.is_selected,
+			                              digitinput_oblives.is_selected,
+			                              textinput_musicname.is_selected])
 			#
 			# initial drawing of map area
 			#
@@ -973,6 +994,8 @@ def main(raw_args=None):
 			#
 			if current_gamestate == GameState.EDITOR_LOCATIONS:
 				#
+				adding_new_ob = False
+				#
 				menu_widgets_2 = [widget_locationsmode_text,
 				                  widget_locationsmode_addnew,
 				                  widget_locationsmode_delete]
@@ -983,14 +1006,14 @@ def main(raw_args=None):
 					mw.draw(screen)
 				for msg in mw_output_msgs_2:
 					if not transition_alpha:
+						#
+						# editor_obdata[i] = [revive_object, startloc, endloc, list_of_exploding_locs, start_actions]
+						#
 						if msg == 'addnew_ob':
 							num_obs = len(currentob_selection_menu.content)
 							currentob_selection_menu.content.append(('Obstacle '+str(num_obs+1),))
 							currentob_selection_menu.index = num_obs
 							currentob_selection_menu.current_range = (max(num_obs+1-currentob_selection_menu.num_rows, 0), num_obs+1)
-							#
-							# editor_obdata[i] = [revive_object, startloc, endloc, list_of_exploding_locs]
-							#
 							new_pos = (int(current_window_offset.x/GRID_SIZE), int(current_window_offset.y/GRID_SIZE))
 							editor_obdata.append([DraggableObject(Vector2(new_pos[0] + 2*GRID_SIZE, new_pos[1] + 2*GRID_SIZE),
 							                      	              PLAYER_RADIUS,
@@ -1012,8 +1035,16 @@ def main(raw_args=None):
 								                               box_color_highlight=Color.PAL_RED_3,
 								                               line_color=Color.PAL_RED_3,
 								                               line_color_highlight=Color.PAL_RED_1),
-							                      []])
+							                      [],
+							                      {'move_mode':0,	# 0 = no move, 1 = move to revive
+							                       'life_mode':0,	# 0 = add,     1 = set
+							                       'life_amount':0,
+							                       'music':''}])
 							editor_obdata[-1][0].add_image(player_img_fns[1])
+							adding_new_ob = True
+						#
+						#
+						#
 						elif msg == 'delete_ob' and currentob_selection_menu.content:
 							obnum_were_deleting = int(currentob_selection_menu.content[currentob_selection_menu.index][0].split(' ')[1])
 							del currentob_selection_menu.content[currentob_selection_menu.index]
@@ -1027,18 +1058,41 @@ def main(raw_args=None):
 							range_end   = min(range_start+currentob_selection_menu.num_rows, len(currentob_selection_menu.content))
 							currentob_selection_menu.current_range = (range_start, range_end)
 				#
-				if arrow_down and not arrow_up:
-					currentob_selection_menu.increase_index()
-				elif arrow_up and not arrow_down:
-					currentob_selection_menu.decrease_index()
+				changing_selected_ob = currentob_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+				currentob_selection_menu.draw(screen)
 				#
-				currentob_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				# save start actions from current ob (if we have one) before updating ob selection
+				#
+				if (adding_new_ob or changing_selected_ob) and editor_currentobnum != None and currentob_selection_menu.content:
+					editor_obdata[editor_currentobnum][4]['move_mode']   = obinfo_move_menu.index
+					editor_obdata[editor_currentobnum][4]['life_mode']   = obinfo_life_menu.index
+					editor_obdata[editor_currentobnum][4]['life_amount'] = digitinput_oblives.get_value()
+					editor_obdata[editor_currentobnum][4]['music']       = textinput_musicname.get_value()
+				#
 				if not currentob_selection_menu.content:
 					editor_obdata       = []
 					editor_currentobnum = None
-				else:
+				elif adding_new_ob or changing_selected_ob:
 					editor_currentobnum = currentob_selection_menu.index
-				currentob_selection_menu.draw(screen)
+					obinfo_move_menu.index = editor_obdata[editor_currentobnum][4]['move_mode']
+					obinfo_life_menu.index = editor_obdata[editor_currentobnum][4]['life_mode']
+					obinfo_move_menu.is_selected = False
+					obinfo_life_menu.is_selected = False
+					digitinput_oblives.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['life_amount']))
+					textinput_musicname.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['music']))
+				#
+				if editor_currentobnum != None:
+					widget_locationsmode_obselectedtext.draw(screen)
+					textinput_widgets = [textinput_musicname,
+					                     digitinput_oblives]
+					for tw in textinput_widgets:
+						tw.update(mouse_pos_screen, left_clicking, return_pressed, pygame_events)
+						tw.draw(screen)
+					#
+					obinfo_move_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+					obinfo_life_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+					obinfo_move_menu.draw(screen)
+					obinfo_life_menu.draw(screen)
 				#
 				if editor_currentobnum != None:
 					locs_mouseover  = [n.is_mouseover for n in editor_obdata[editor_currentobnum][3]]
@@ -1091,20 +1145,13 @@ def main(raw_args=None):
 					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
 					mw.draw(screen)
 				#
-				if arrow_down and not arrow_up:
-					event_selection_menu.increase_index()
-					unit_selection_menu_explosion.increase_index()
-				elif arrow_up and not arrow_down:
-					event_selection_menu.decrease_index()
-					unit_selection_menu_explosion.decrease_index()
-				#
-				event_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				event_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 				event_selection_menu.draw(screen)
 				event_submode = event_selection_menu.get_selected_content()
 				if event_submode == 'explosion':
 					widget_explosionsmode_submenu_explosion.update(mouse_pos_screen, left_clicking)
 					widget_explosionsmode_submenu_explosion.draw(screen)
-					unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking, return_pressed)
+					unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 					unit_selection_menu_explosion.draw(screen)
 				else:
 					unit_selection_menu_explosion.is_selected = False

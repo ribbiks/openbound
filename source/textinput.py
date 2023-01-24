@@ -24,7 +24,7 @@ class TextInput:
 		self.num_rows     = num_rows
 		self.manager      = TextInputManager(validator = lambda input: (len(input) <= self.max_chars and self.font.can_be_fully_rendered(input+'|', self.max_width, self.num_rows)))
 
-	def get_string(self):
+	def get_value(self):
 		return ''.join(self.str_left) + ''.join(self.str_right)
 
 	def reset_with_new_str(self, new_str):

@@ -51,6 +51,8 @@ class SelectionMenu:
 			self.current_delay = 2
 			if self.index >= self.current_range[1]:
 				self.current_range = (self.index + 1 - self.num_rows, self.index + 1)
+			return True
+		return False
 
 	def decrease_index(self):
 		if self.is_selected and self.current_delay <= 0 and self.index > 0:
@@ -58,27 +60,34 @@ class SelectionMenu:
 			self.current_delay = 2
 			if self.index < self.current_range[0]:
 				self.current_range = (self.index, self.index + self.num_rows)
+			return True
+		return False
 
-	def update(self, mousepos, activation, release):
-		which_index = None
-		for i in range(self.current_range[0], self.current_range[1]):
-			tl = self.pos + Vector2(0, (i - self.current_range[0]) * self.row_height)
-			br = self.pos + Vector2(self.col_width, (i - self.current_range[0] + 1) * self.row_height)
-			if point_in_box_excl(mousepos, tl, br):
-				which_index = i
-				break
-		output_bool = False
-		if activation and which_index != None:
-			self.index = which_index
-			self.is_selected = True
-			output_bool = True
-		elif activation:
-			self.is_selected = False
-		if release:
-			self.is_selected = False
-		if self.current_delay > 0:
-			self.current_delay -= 1
-		return output_bool
+	def update(self, mousepos, activation, release, inc_activation, dec_activation):
+		if inc_activation:
+			return self.increase_index()
+		elif dec_activation:
+			return self.decrease_index()
+		else:
+			which_index = None
+			for i in range(self.current_range[0], self.current_range[1]):
+				tl = self.pos + Vector2(0, (i - self.current_range[0]) * self.row_height)
+				br = self.pos + Vector2(self.col_width, (i - self.current_range[0] + 1) * self.row_height)
+				if point_in_box_excl(mousepos, tl, br):
+					which_index = i
+					break
+			output_bool = False
+			if activation and which_index != None:
+				self.index = which_index
+				self.is_selected = True
+				output_bool = True
+			elif activation:
+				self.is_selected = False
+			if release:
+				self.is_selected = False
+			if self.current_delay > 0:
+				self.current_delay -= 1
+			return output_bool
 
 	def draw(self, screen):
 		if not self.content and self.empty_message:
