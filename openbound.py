@@ -71,6 +71,7 @@ def main(raw_args=None):
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
 	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
 	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png','scourge1.png','scourge2.png','scourge3.png','scourge4.png','scourge5.png'])
+	tele_icons_fns = get_file_paths(GFX_DIR, ['tele_origin.png', 'tele_dest.png'])
 	#
 	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
 	player_sound_fns = get_file_paths(SFX_DIR, ['zzedth00.wav'])
@@ -122,6 +123,12 @@ def main(raw_args=None):
 	my_animations = AnimationManager()
 	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
+	my_animations.add_animation_cycle(tele_icons_fns, 'tele_icons')
+	#
+	explosion_imgs = {'overlord'         : my_animations.all_animations['overlord'][0],
+	                  'scourge'          : my_animations.all_animations['scourge'][0],
+	                  'tele_origin'      : my_animations.all_animations['tele_icons'][0],
+	                  'tele_destination' : my_animations.all_animations['tele_icons'][1]}
 
 	# initial geometry stuff
 	DEFAULT_PLAYER_START  = Vector2(1,1)
@@ -137,6 +144,7 @@ def main(raw_args=None):
 	editor_tiledrawer     = TileMap(tile_fns)
 	editor_obdata         = []
 	editor_currentobnum   = None
+	editor_currentexpnum  = None
 
 	# other gfx
 	my_cursor          = Cursor(cursor_img_fns)
@@ -419,6 +427,52 @@ def main(raw_args=None):
 	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y+20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
 	widget_explosionsmode_submenu_explosion.add_text(Vector2(tl.x+98, tl.y), 'Unit:', 't1', font_dict['large_w'])
 	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	unit_selection_menu_teleport  = UnitMenu(Vector2(tl.x+100, tl.y+24), ['tele_origin', 'tele_destination'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	#
+	tl = Vector2(352, 400)
+	widget_explosionsmode_control_1 = UIWidget()
+	widget_explosionsmode_control_1.add_rect(Vector2(tl.x-4, tl.y), Vector2(tl.x+32-4, tl.y+32), Color.PAL_BLUE_4, border_radius=2, mouseover_condition=(True,False))
+	widget_explosionsmode_control_1.add_rect(Vector2(tl.x-4, tl.y), Vector2(tl.x+32-4, tl.y+32), Color.PAL_BLUE_3, border_radius=2, mouseover_condition=(False,True))
+	widget_explosionsmode_control_1.add_text(tl + Vector2(16-4,16), '<<', '<<', font_dict['large_w'], is_centered=True)
+	widget_explosionsmode_control_1.add_return_message('<<')
+	#
+	widget_explosionsmode_control_2 = UIWidget()
+	widget_explosionsmode_control_2.add_rect(Vector2(tl.x+32, tl.y), Vector2(tl.x+64, tl.y+32), Color.PAL_BLUE_4, border_radius=2, mouseover_condition=(True,False))
+	widget_explosionsmode_control_2.add_rect(Vector2(tl.x+32, tl.y), Vector2(tl.x+64, tl.y+32), Color.PAL_BLUE_3, border_radius=2, mouseover_condition=(False,True))
+	widget_explosionsmode_control_2.add_text(tl + Vector2(48,16), '<', '<', font_dict['large_w'], is_centered=True)
+	widget_explosionsmode_control_2.add_return_message('<')
+	#
+	widget_explosionsmode_control_3 = UIWidget()
+	widget_explosionsmode_control_3.add_rect(Vector2(tl.x+64+4, tl.y-16+4), Vector2(tl.x+128-4, tl.y+48-4), Color.PAL_BLUE_4, border_radius=2)
+	widget_explosionsmode_control_3.add_rect(Vector2(tl.x+64+8, tl.y-16+8), Vector2(tl.x+128-8, tl.y+48-8), Color.PAL_BLUE_5, border_radius=2)
+	widget_explosionsmode_control_3.add_text(tl + Vector2(96,16), '1', 'exp_num', font_dict['large_w'], is_centered=True)
+	widget_explosionsmode_control_3.add_text(tl + Vector2(71,53), 'delay:', 't1', font_dict['small_w'])
+	#
+	digitinput_expdelay = DigitInput(tl + Vector2(96,48), tl + Vector2(124,64), font_dict['small_w'], (0,999), char_offset=Vector2(6,5), default_val=0, max_chars=3)
+	#
+	widget_explosionsmode_control_4 = UIWidget()
+	widget_explosionsmode_control_4.add_rect(Vector2(tl.x+128, tl.y), Vector2(tl.x+160, tl.y+32), Color.PAL_BLUE_4, border_radius=2, mouseover_condition=(True,False))
+	widget_explosionsmode_control_4.add_rect(Vector2(tl.x+128, tl.y), Vector2(tl.x+160, tl.y+32), Color.PAL_BLUE_3, border_radius=2, mouseover_condition=(False,True))
+	widget_explosionsmode_control_4.add_text(tl + Vector2(144,16), '>', '>', font_dict['large_w'], is_centered=True)
+	widget_explosionsmode_control_4.add_return_message('>')
+	#
+	widget_explosionsmode_control_5 = UIWidget()
+	widget_explosionsmode_control_5.add_rect(Vector2(tl.x+160+4, tl.y), Vector2(tl.x+192+4, tl.y+32), Color.PAL_BLUE_4, border_radius=2, mouseover_condition=(True,False))
+	widget_explosionsmode_control_5.add_rect(Vector2(tl.x+160+4, tl.y), Vector2(tl.x+192+4, tl.y+32), Color.PAL_BLUE_3, border_radius=2, mouseover_condition=(False,True))
+	widget_explosionsmode_control_5.add_text(tl + Vector2(176+4,16), '>>', '>>', font_dict['large_w'], is_centered=True)
+	widget_explosionsmode_control_5.add_return_message('>>')
+	#
+	widget_explosionsmode_control_6 = UIWidget()
+	widget_explosionsmode_control_6.add_rect(Vector2(tl.x+4, tl.y+40), Vector2(tl.x+56, tl.y+64), Color.PAL_BLUE_4, border_radius=12, mouseover_condition=(True,False))
+	widget_explosionsmode_control_6.add_rect(Vector2(tl.x+4, tl.y+40), Vector2(tl.x+56, tl.y+64), Color.PAL_BLUE_3, border_radius=12, mouseover_condition=(False,True))
+	widget_explosionsmode_control_6.add_text(tl + Vector2(30,52), 'Insert', 'insert', font_dict['small_w'], is_centered=True)
+	widget_explosionsmode_control_6.add_return_message('insert')
+	#
+	widget_explosionsmode_control_7 = UIWidget()
+	widget_explosionsmode_control_7.add_rect(Vector2(tl.x+4+132, tl.y+40), Vector2(tl.x+56+132, tl.y+64), Color.PAL_BLUE_4, border_radius=12, mouseover_condition=(True,False))
+	widget_explosionsmode_control_7.add_rect(Vector2(tl.x+4+132, tl.y+40), Vector2(tl.x+56+132, tl.y+64), Color.PAL_BLUE_3, border_radius=12, mouseover_condition=(False,True))
+	widget_explosionsmode_control_7.add_text(tl + Vector2(30+132,52), 'Delete', 'delete', font_dict['small_w'], is_centered=True)
+	widget_explosionsmode_control_7.add_return_message('delete')
 	#
 	#
 	#	VARIOUS EDITOR MODE WIDGETS
@@ -719,7 +773,7 @@ def main(raw_args=None):
 		elif current_gamestate == GameState.BOUNDING or current_gamestate == GameState.PAUSE_MENU:
 			#
 			if current_gamestate == GameState.BOUNDING:
-				current_volume = 0.35
+				current_volume = 0.350
 				#
 				# processing player inputs
 				#
@@ -737,7 +791,7 @@ def main(raw_args=None):
 						my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
 			#
 			elif current_gamestate == GameState.PAUSE_MENU:
-				current_volume = 0.12
+				current_volume = 0.125
 			#
 			# update players
 			#
@@ -753,7 +807,7 @@ def main(raw_args=None):
 				for n in ob_gfx:
 					my_animations.start_new_animation(n[0], n[1])
 				for n in ob_snd:
-					my_audio.play_sound(n[0], volume=current_volume)
+					my_audio.play_sound(n, volume=current_volume)
 				if ob_kill:
 					player_died = my_player.check_kill_boxes(ob_kill)
 					if player_died:
@@ -833,7 +887,8 @@ def main(raw_args=None):
 			                                  obinfo_move_menu.is_selected,
 			                                  obinfo_life_menu.is_selected,
 			                                  event_selection_menu.is_selected,
-			                                  unit_selection_menu_explosion.is_selected])
+			                                  unit_selection_menu_explosion.is_selected,
+			                                  unit_selection_menu_teleport.is_selected])
 			any_textinput_selected = any([textinput_mapname.is_selected,
 			                              textinput_author.is_selected,
 			                              textinput_description.is_selected,
@@ -844,7 +899,8 @@ def main(raw_args=None):
 			                              digitinput_playerx.is_selected,
 			                              digitinput_playery.is_selected,
 			                              digitinput_oblives.is_selected,
-			                              textinput_musicname.is_selected])
+			                              textinput_musicname.is_selected,
+			                              digitinput_expdelay.is_selected])
 			#
 			# initial drawing of map area
 			#
@@ -954,7 +1010,7 @@ def main(raw_args=None):
 						if msg == 'toggle_wall_highlighting':
 							highlight_walls = not highlight_walls
 				#
-				terraindim_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				terraindim_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 				terraindim_selection_menu.draw(screen)
 				current_terrain_tile_dim = terraindim_selection_menu.get_selected_content()
 				#
@@ -1007,7 +1063,7 @@ def main(raw_args=None):
 				for msg in mw_output_msgs_2:
 					if not transition_alpha:
 						#
-						# editor_obdata[i] = [revive_object, startloc, endloc, list_of_exploding_locs, start_actions]
+						# editor_obdata[i] = [revive_object, startloc, endloc, list_of_exploding_locs, start_actions, explosions_data]
 						#
 						if msg == 'addnew_ob':
 							num_obs = len(currentob_selection_menu.content)
@@ -1039,7 +1095,9 @@ def main(raw_args=None):
 							                      {'move_mode':0,	# 0 = no move, 1 = move to revive
 							                       'life_mode':0,	# 0 = add,     1 = set
 							                       'life_amount':0,
-							                       'music':''}])
+							                       'music':''},
+							                      [{'explode_locs':{},	# explode_locs[locname] = unit
+							                        'delay':0}]])
 							editor_obdata[-1][0].add_image(player_img_fns[1])
 							adding_new_ob = True
 						#
@@ -1063,17 +1121,20 @@ def main(raw_args=None):
 				#
 				# save start actions from current ob (if we have one) before updating ob selection
 				#
-				if (adding_new_ob or changing_selected_ob) and editor_currentobnum != None and currentob_selection_menu.content:
+				no_text_menus_selected = not digitinput_oblives.is_selected and not textinput_musicname.is_selected
+				if (no_text_menus_selected or adding_new_ob or changing_selected_ob) and editor_currentobnum != None and currentob_selection_menu.content:
 					editor_obdata[editor_currentobnum][4]['move_mode']   = obinfo_move_menu.index
 					editor_obdata[editor_currentobnum][4]['life_mode']   = obinfo_life_menu.index
 					editor_obdata[editor_currentobnum][4]['life_amount'] = digitinput_oblives.get_value()
 					editor_obdata[editor_currentobnum][4]['music']       = textinput_musicname.get_value()
 				#
 				if not currentob_selection_menu.content:
-					editor_obdata       = []
-					editor_currentobnum = None
+					editor_obdata        = []
+					editor_currentobnum  = None
+					editor_currentexpnum = None
 				elif adding_new_ob or changing_selected_ob:
-					editor_currentobnum = currentob_selection_menu.index
+					editor_currentobnum    = currentob_selection_menu.index
+					editor_currentexpnum   = 0
 					obinfo_move_menu.index = editor_obdata[editor_currentobnum][4]['move_mode']
 					obinfo_life_menu.index = editor_obdata[editor_currentobnum][4]['life_mode']
 					obinfo_move_menu.is_selected = False
@@ -1095,7 +1156,7 @@ def main(raw_args=None):
 					obinfo_life_menu.draw(screen)
 				#
 				if editor_currentobnum != None:
-					locs_mouseover  = [n.is_mouseover for n in editor_obdata[editor_currentobnum][3]]
+					locs_mouseover         = [n.is_mouseover for n in editor_obdata[editor_currentobnum][3]]
 					special_locs_mouseover = [n.is_mouseover for n in editor_obdata[editor_currentobnum][:3]]
 					#
 					# draw locs for currently selected ob
@@ -1138,23 +1199,120 @@ def main(raw_args=None):
 			#
 			if current_gamestate == GameState.EDITOR_EXPLOSIONS:
 				#
-				menu_widgets_2 = [widget_explosionsmode_text]
+				menu_widgets_2 = [widget_explosionsmode_text,
+				                  widget_explosionsmode_control_1,
+				                  widget_explosionsmode_control_2,
+				                  widget_explosionsmode_control_4,
+				                  widget_explosionsmode_control_5,
+				                  widget_explosionsmode_control_6,
+				                  widget_explosionsmode_control_7]
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
 					mw_output_msgs_2[mw.update(mouse_pos_screen, left_clicking)] = True
 					mw.draw(screen)
 				#
+				digitinput_expdelay.update(mouse_pos_screen, left_clicking, return_pressed, pygame_events)
+				digitinput_expdelay.draw(screen)
+				editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay'] = digitinput_expdelay.get_value()
+				#
+				any_control_messages = False
+				for msg in mw_output_msgs_2:
+					if editor_currentobnum != None and not transition_alpha:
+						if msg == '<<':
+							editor_currentexpnum = 0
+							any_control_messages = True
+						elif msg == '<':
+							editor_currentexpnum = max(editor_currentexpnum - 1, 0)
+							any_control_messages = True
+						elif msg == '>':
+							current_count_is_empty = editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'] == {}
+							if not current_count_is_empty:
+								if editor_currentexpnum < len(editor_obdata[editor_currentobnum][5]) - 1:
+									editor_currentexpnum += 1
+								else:
+									prev_delay = editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']
+									editor_currentexpnum += 1
+									editor_obdata[editor_currentobnum][5].append({'explode_locs':{}, 'delay':prev_delay})
+								any_control_messages = True
+						elif msg == '>>':
+							last_i = len(editor_obdata[editor_currentobnum][5]) - 1
+							last_count_is_empty = editor_obdata[editor_currentobnum][5][last_i]['explode_locs'] == {}
+							if last_count_is_empty:
+								editor_currentexpnum = last_i - 1
+							else:
+								editor_currentexpnum = last_i
+							any_control_messages = True
+				#
+				if any_control_messages:
+					for loc_box in editor_obdata[editor_currentobnum][3]:
+						loc_box.clear_icon()
+					my_exp_dict = editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs']
+					for k in my_exp_dict.keys():
+						editor_obdata[editor_currentobnum][3][k].change_icon(explosion_imgs[my_exp_dict[k]])
+					digitinput_expdelay.reset_with_new_str(str(editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']))
+				else:
+					if editor_currentexpnum != None:
+						editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay'] = digitinput_expdelay.get_value()
+				#
+				if editor_currentexpnum == None:
+					widget_explosionsmode_control_3.text_data['exp_num'] = ''
+				else:
+					widget_explosionsmode_control_3.text_data['exp_num'] = str(editor_currentexpnum+1)
+				widget_explosionsmode_control_3.update(mouse_pos_screen, left_clicking)
+				widget_explosionsmode_control_3.draw(screen)
+				#
 				event_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 				event_selection_menu.draw(screen)
 				event_submode = event_selection_menu.get_selected_content()
-				if event_submode == 'explosion':
+				selected_exploding_unit = None
+				if event_submode == 'explosion' or event_submode == 'teleport':
 					widget_explosionsmode_submenu_explosion.update(mouse_pos_screen, left_clicking)
 					widget_explosionsmode_submenu_explosion.draw(screen)
-					unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
-					unit_selection_menu_explosion.draw(screen)
+					if event_submode == 'explosion':
+						unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+						unit_selection_menu_explosion.draw(screen)
+						selected_exploding_unit = unit_selection_menu_explosion.get_selected_content()
+					elif event_submode == 'teleport':
+						unit_selection_menu_teleport.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+						unit_selection_menu_teleport.draw(screen)
+						selected_exploding_unit = unit_selection_menu_teleport.get_selected_content()
 				else:
 					unit_selection_menu_explosion.is_selected = False
+				#
+				if editor_currentobnum != None:
+					#
+					# highlight locs on mouseover but don't allow any resizing / dragging
+					#
+					for exploding_loc in editor_obdata[editor_currentobnum][3]:
+						exploding_loc.update(mouse_pos_map, False, False, mapobject_limits)
+						exploding_loc.draw(screen, current_window_offset, mouse_in_editor_region, highlight_edges=False)
+					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, False, False, mapobject_limits)
+					editor_obdata[editor_currentobnum][1].update(mouse_pos_map, False, False, mapobject_limits)
+					editor_obdata[editor_currentobnum][2].update(mouse_pos_map, False, False, mapobject_limits)
+					editor_obdata[editor_currentobnum][1].draw(screen, current_window_offset, mouse_in_editor_region, highlight_edges=False)
+					editor_obdata[editor_currentobnum][2].draw(screen, current_window_offset, mouse_in_editor_region, highlight_edges=False)
+					editor_obdata[editor_currentobnum][0].draw(screen, current_window_offset)
+					#
+					# are we adding an explosion to a location?
+					#
+					locs_mouseover = [n.is_mouseover for n in editor_obdata[editor_currentobnum][3]]
+					if left_clicking and mouse_in_editor_region and any(locs_mouseover) and selected_exploding_unit != None:
+						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
+						smallest_loc = sorted(smallest_loc)[0][1]
+						editor_obdata[editor_currentobnum][3][smallest_loc].change_icon(explosion_imgs[selected_exploding_unit])
+						editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][smallest_loc] = selected_exploding_unit
+					#
+					# are we removing an explosion?
+					#
+					if right_clicking and mouse_in_editor_region and any(locs_mouseover):
+						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
+						smallest_loc = sorted(smallest_loc)[0][1]
+						editor_obdata[editor_currentobnum][3][smallest_loc].clear_icon()
+						del editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][smallest_loc]
+					#
+					for exploding_loc in editor_obdata[editor_currentobnum][3]:
+						exploding_loc.draw_icon(screen, current_window_offset)
 
 			#
 			# EDITOR PAUSE MENU

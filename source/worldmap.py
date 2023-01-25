@@ -63,16 +63,11 @@ class WorldMap:
 			for k2 in loc_keys:
 				my_loc_key = k2[4:]
 				my_loc_dat = json_dat[k][k2]
-				self.obstacles[my_ob_key].add_location(my_loc_key,
-				                                       Vector2(my_loc_dat[0], my_loc_dat[1]),
-				                                       Vector2(my_loc_dat[2], my_loc_dat[3]),
-				                                       my_loc_dat[4],
-				                                       my_loc_dat[5])
+				self.obstacles[my_ob_key].add_location(my_loc_key, Vector2(my_loc_dat[0], my_loc_dat[1]), Vector2(my_loc_dat[2], my_loc_dat[3]))
 			for k2 in event_keys:
 				my_event_dat = json_dat[k][k2]
-				self.obstacles[my_ob_key].add_event(my_event_dat[0],
-				                                    my_event_dat[1],
-				                                    my_event_dat[2])
+				if my_event_dat[0] == 'explode_locs':
+					self.obstacles[my_ob_key].add_event_explode_locs(my_event_dat[1], my_event_dat[2], my_event_dat[3])
 
 		#
 		# lets construct all the stuff we need for pathfinding

@@ -4,7 +4,7 @@ import pygame
 from collections import deque
 from pygame.math import Vector2
 
-from source.geometry    import angle_clamp, boxes_overlap, SMALL_NUMBER
+from source.geometry    import angle_clamp, boxes_overlap, point_in_box, SMALL_NUMBER
 from source.misc_gfx    import Color
 from source.pathfinding import pathfind
 from source.globals     import GRID_SIZE, PLAYER_RADIUS
@@ -49,10 +49,8 @@ class Mauzling:
 		self.position    = pos
 		self.angle       = angle_clamp(angle)
 		self.radius      = PLAYER_RADIUS
-		self.bbox        = (self.position.x - self.radius,
-		                    self.position.x + self.radius,
-		                    self.position.y - self.radius,
-		                    self.position.y + self.radius)
+		self.bbox        = (Vector2(self.position.x - self.radius, self.position.y - self.radius),
+		                    Vector2(self.position.x + self.radius, self.position.y + self.radius))
 		self.state       = PlayerState.IDLE
 		self.is_selected = False
 		self.iscript_ind = 0
@@ -67,8 +65,8 @@ class Mauzling:
 	def draw(self, screen, offset, draw_bounding_box=False):
 		if self.state != PlayerState.DEAD:
 			if self.is_selected:
-				ellipse_bounds = [self.bbox[0] + offset.x - PLAYER_RADIUS/2,
-				                  self.bbox[2] + offset.y + PLAYER_RADIUS,
+				ellipse_bounds = [self.bbox[0].x + offset.x - PLAYER_RADIUS/2,
+				                  self.bbox[0].y + offset.y + PLAYER_RADIUS,
 				                  3*PLAYER_RADIUS,
 				                  2*PLAYER_RADIUS]
 				pygame.draw.ellipse(screen, Color.SEL_ELLIPSE, ellipse_bounds, width=1)
@@ -76,10 +74,10 @@ class Mauzling:
 			new_rect = rotated_image.get_rect(center=self.img.get_rect(center=self.position+offset).center)
 			screen.blit(rotated_image, new_rect)
 			if draw_bounding_box:
-				edges_to_draw = [(Vector2(self.bbox[0], self.bbox[2]), Vector2(self.bbox[1], self.bbox[2])),
-				                 (Vector2(self.bbox[1], self.bbox[2]), Vector2(self.bbox[1], self.bbox[3])),
-				                 (Vector2(self.bbox[1], self.bbox[3]), Vector2(self.bbox[0], self.bbox[3])),
-				                 (Vector2(self.bbox[0], self.bbox[3]), Vector2(self.bbox[0], self.bbox[2]))]
+				edges_to_draw = [(Vector2(self.bbox[0].x, self.bbox[0].y), Vector2(self.bbox[1].x, self.bbox[0].y)),
+				                 (Vector2(self.bbox[1].x, self.bbox[0].y), Vector2(self.bbox[1].x, self.bbox[1].y)),
+				                 (Vector2(self.bbox[1].x, self.bbox[1].y), Vector2(self.bbox[0].x, self.bbox[1].y)),
+				                 (Vector2(self.bbox[0].x, self.bbox[1].y), Vector2(self.bbox[0].x, self.bbox[0].y))]
 				for edge in edges_to_draw:
 					pygame.draw.line(screen, Color.HITBOX, edge[0]+offset, edge[1]+offset, width=1)
 	
@@ -88,11 +86,9 @@ class Mauzling:
 	#
 	def update_position(self, pos, angle):
 		self.position = pos
-		self.angle = angle
-		self.bbox = (self.position.x - self.radius,
-		             self.position.x + self.radius,
-		             self.position.y - self.radius,
-		             self.position.y + self.radius)
+		self.angle    = angle
+		self.bbox     = (Vector2(self.position.x - self.radius, self.position.y - self.radius),
+		                 Vector2(self.position.x + self.radius, self.position.y + self.radius))
 	
 	#
 	#
@@ -118,11 +114,7 @@ class Mauzling:
 	def check_selection_click(self, point):
 		if self.state == PlayerState.DEAD:
 			return False
-		inside_box = (point.x >= self.bbox[0] - CLICK_SELECTION_BUFF and
-		              point.x <= self.bbox[1] + CLICK_SELECTION_BUFF and
-		              point.y >= self.bbox[2] - CLICK_SELECTION_BUFF and
-		              point.y <= self.bbox[3] + CLICK_SELECTION_BUFF)
-		if inside_box:
+		if point_in_box(point, self.bbox[0]-Vector2(CLICK_SELECTION_BUFF,CLICK_SELECTION_BUFF), self.bbox[1]+Vector2(CLICK_SELECTION_BUFF,CLICK_SELECTION_BUFF)):
 			self.is_selected = True
 		else:
 			self.is_selected = False
@@ -135,11 +127,9 @@ class Mauzling:
 			return False
 		bx = sorted([box[0].x, box[1].x])
 		by = sorted([box[0].y, box[1].y])
-		inside_box = (self.position.x >= bx[0] and
-		              self.position.x <= bx[1] and
-		              self.position.y >= by[0] and
-		              self.position.y <= by[1])
-		if inside_box:
+		tl = Vector2(bx[0], by[0])
+		br = Vector2(bx[1], by[1])
+		if point_in_box(self.position, tl, br):
 			self.is_selected = True
 		else:
 			self.is_selected = False
@@ -148,9 +138,8 @@ class Mauzling:
 	# returns True if we died
 	#
 	def check_kill_boxes(self, boxes):
-		mybox = (Vector2(self.bbox[0], self.bbox[2]), Vector2(self.bbox[1], self.bbox[3]))
 		for b in boxes:
-			if boxes_overlap(b, mybox):
+			if boxes_overlap(b, self.bbox):
 				return True
 		return False
 
@@ -361,11 +350,7 @@ class Mauzling:
 			if (order - self.order_queue[-1][0]).length() <= CLICK_DEADZONE:
 				return True
 		# reject order if clicked inside player
-		inside_box = (order.x >= self.bbox[0] - HITBOX_DEADZONE_BUFF and
-		              order.x <= self.bbox[1] + HITBOX_DEADZONE_BUFF and
-		              order.y >= self.bbox[2] - HITBOX_DEADZONE_BUFF and
-		              order.y <= self.bbox[3] + HITBOX_DEADZONE_BUFF)
-		if inside_box:
+		if point_in_box(order, self.bbox[0]-Vector2(HITBOX_DEADZONE_BUFF,HITBOX_DEADZONE_BUFF), self.bbox[1]+Vector2(HITBOX_DEADZONE_BUFF,HITBOX_DEADZONE_BUFF)):
 			return False
 		#
 		self.inc_orders.append([order, MOVE_DELAY, move_type])

@@ -28,6 +28,8 @@ class ResizableBox:
 		self.line_color           = line_color
 		self.line_color_highlight = line_color_highlight
 		self.line_width           = 1
+		#
+		self.my_image = None
 
 	def get_area(self):
 		dx = self.br.x - self.tl.x
@@ -112,7 +114,19 @@ class ResizableBox:
 				self.dragging_whole = True
 		return released
 
-	def draw(self, screen, offset, mouseover_condition):
+	def change_icon(self, surface):
+		self.my_image = surface
+
+	def clear_icon(self):
+		self.my_image = None
+
+	def draw_icon(self, screen, offset):
+		if self.my_image != None:
+			center_pos = (self.tl + self.br)/2
+			new_rect   = self.my_image.get_rect(center=self.my_image.get_rect(center=center_pos+offset).center)
+			screen.blit(self.my_image, new_rect)
+
+	def draw(self, screen, offset, mouseover_condition, highlight_edges=True):
 		box_surface = pygame.Surface(screen.get_size())
 		tl = Vector2(self.tl.x + 1, self.tl.y + 1)
 		br = Vector2(self.br.x - 1, self.br.y - 1)
@@ -126,22 +140,22 @@ class ResizableBox:
 		screen.blit(box_surface, (0,0), special_flags=pygame.BLEND_ALPHA_SDL2)
 		#
 		col = self.line_color
-		if mouseover_condition and self.dragging_whole == False and (self.edges_selected[0] or self.drag_mode[0]):
+		if highlight_edges and mouseover_condition and self.dragging_whole == False and (self.edges_selected[0] or self.drag_mode[0]):
 			col = self.line_color_highlight
 		pygame.draw.line(screen, col, Vector2(self.tl.x, self.br.y-1) + offset, self.tl + offset, width=self.line_width)
 		#
 		col = self.line_color
-		if mouseover_condition and self.dragging_whole == False and (self.edges_selected[1] or self.drag_mode[1]):
+		if highlight_edges and mouseover_condition and self.dragging_whole == False and (self.edges_selected[1] or self.drag_mode[1]):
 			col = self.line_color_highlight
 		pygame.draw.line(screen, col, self.tl + offset, Vector2(self.br.x-1, self.tl.y) + offset, width=self.line_width)
 		#
 		col = self.line_color
-		if mouseover_condition and self.dragging_whole == False and (self.edges_selected[2] or self.drag_mode[2]):
+		if highlight_edges and mouseover_condition and self.dragging_whole == False and (self.edges_selected[2] or self.drag_mode[2]):
 			col = self.line_color_highlight
 		pygame.draw.line(screen, col, Vector2(self.br.x-1, self.tl.y) + offset, self.br - Vector2(1,1) + offset, width=self.line_width)
 		#
 		col = self.line_color
-		if mouseover_condition and self.dragging_whole == False and (self.edges_selected[3] or self.drag_mode[3]):
+		if highlight_edges and mouseover_condition and self.dragging_whole == False and (self.edges_selected[3] or self.drag_mode[3]):
 			col = self.line_color_highlight
 		pygame.draw.line(screen, col, self.br - Vector2(1,1) + offset, Vector2(self.tl.x, self.br.y-1) + offset, width=self.line_width)
 		#
