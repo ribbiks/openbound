@@ -18,7 +18,7 @@ TURN_SPEED = 40
 #
 # pathing / click delay stuff
 #
-MOVE_DELAY           = 3
+MOVE_DELAY           = 4	# OpenBound "turnrate"
 QUEUE_DELAY          = 1
 MAX_ORDERS_IN_QUEUE  = 32
 CLICK_DEADZONE       = 4

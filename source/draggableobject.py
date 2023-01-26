@@ -5,10 +5,10 @@ from pygame.math import Vector2
 from source.geometry import point_in_box_excl, value_clamp
 from source.globals  import GRID_SIZE
 
-CLICK_BUFF = 16
+CLICK_BUFF = 8
 
 class DraggableObject:
-	def __init__(self, center_pos, radius, grid_snap=GRID_SIZE, pos_offset=Vector2(-int(GRID_SIZE/2), -int(GRID_SIZE/2))):
+	def __init__(self, center_pos, radius, grid_snap=GRID_SIZE, pos_offset=Vector2(-int(GRID_SIZE/2), -int(GRID_SIZE/2)), init_image_fn=None):
 		self.center_pos   = center_pos
 		self.radius       = radius
 		self.grid_snap    = grid_snap
@@ -16,6 +16,8 @@ class DraggableObject:
 		self.is_selected  = False
 		self.is_mouseover = False
 		self.images = []
+		if init_image_fn != None:
+			self.add_image(init_image_fn)
 
 	def add_image(self, img_fn):
 		self.images.append(pygame.image.load(img_fn).convert_alpha())

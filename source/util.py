@@ -1,4 +1,14 @@
+import json
 import os
+import pygame
+import numpy as np
+
+from pygame.math import Vector2
+
+from source.draggableobject import DraggableObject
+from source.misc_gfx        import Color
+from source.globals         import GRID_SIZE, PLAYER_RADIUS
+from source.resizablebox    import ResizableBox
 
 def exists_and_is_nonzero(fn):
 	if os.path.isfile(fn):
@@ -31,6 +41,9 @@ def get_box_str_from_tl(tl):
 def get_box_str_from_tlbr(tl, br):
 	return '[' + ','.join([str(int(n)) for n in [tl.x, tl.y, br.x, br.y]]) + ']'
 
+#
+#
+#
 def write_map_data_to_json(out_fn, all_map_objects):
 	(textinput_mapname,
 	 textinput_author,
@@ -39,10 +52,11 @@ def write_map_data_to_json(out_fn, all_map_objects):
 	 digitinput_rating,
 	 digitinput_mapsizex,
 	 digitinput_mapsizey,
+	 digitinput_playerx,
+	 digitinput_playery,
 	 draggable_playerstart,
 	 #
 	 editor_tilemap,
-	 #
 	 editor_obdata) = all_map_objects
 	#
 	if not textinput_mapname.get_value():
@@ -111,7 +125,122 @@ def write_map_data_to_json(out_fn, all_map_objects):
 				else:
 					f.write('],\n')
 			#
-			f.write('    }\n')
+			if i == len(editor_obdata) - 1:
+				f.write('    }\n')
+			else:
+				f.write('    },\n')
 		f.write('}')
 		#
 		return 'saved map as: ' + out_fn
+
+#
+#
+#
+def get_blank_obdata(new_pos, font_dict, revive_img):
+	return [DraggableObject(Vector2(new_pos[0] + 2*GRID_SIZE, new_pos[1] + 2*GRID_SIZE),
+	                        PLAYER_RADIUS,
+	                        grid_snap=int(GRID_SIZE/2),
+	                        pos_offset=Vector2(0,0),
+	                        init_image_fn=revive_img),
+	        ResizableBox(Vector2(new_pos[0] + 4*GRID_SIZE, new_pos[1]),
+	                     Vector2(new_pos[0] + 8*GRID_SIZE, new_pos[1] + 4*GRID_SIZE),
+	                     'start',
+	                     font_dict['small_w'],
+	                     box_color=Color.PAL_GREEN_4,
+	                     box_color_highlight=Color.PAL_GREEN_3,
+	                     line_color=Color.PAL_GREEN_3,
+	                     line_color_highlight=Color.PAL_GREEN_1),
+	        ResizableBox(Vector2(new_pos[0] + 8*GRID_SIZE,  new_pos[1]),
+	                     Vector2(new_pos[0] + 12*GRID_SIZE, new_pos[1] + 4*GRID_SIZE),
+	                     'end',
+	                     font_dict['small_w'],
+	                     box_color=Color.PAL_RED_4,
+	                     box_color_highlight=Color.PAL_RED_3,
+	                     line_color=Color.PAL_RED_3,
+	                     line_color_highlight=Color.PAL_RED_1),
+	        [],
+	        {'move_mode':0,			# 0 = no move, 1 = move to revive
+	         'life_mode':0,			# 0 = add,     1 = set
+	         'life_amount':0,
+	         'music':''},
+	        [{'explode_locs':{},	# explode_locs[locname] = unit
+	          'delay':0}]]
+
+#
+#
+#
+def read_map_data_from_json(in_fn, all_map_objects, font_dict, revive_img):
+	(textinput_mapname,
+	 textinput_author,
+	 textinput_description,
+	 digitinput_lives,
+	 digitinput_rating,
+	 digitinput_mapsizex,
+	 digitinput_mapsizey,
+	 digitinput_playerx,
+	 digitinput_playery,
+	 draggable_playerstart) = all_map_objects
+	#
+	with open(in_fn,'r') as f:
+		json_dat = json.load(f)
+	#
+	spos_quant = (int(json_dat['start_pos'][0]/GRID_SIZE), int(json_dat['start_pos'][1]/GRID_SIZE))
+	#
+	textinput_mapname.reset_with_new_str(json_dat['map_name'])
+	textinput_author.reset_with_new_str(json_dat['map_author'])
+	textinput_description.reset_with_new_str(json_dat['map_notes'])
+	digitinput_lives.reset_with_new_str(str(json_dat['init_lives']))
+	digitinput_rating.reset_with_new_str(str(json_dat['difficulty']))
+	digitinput_mapsizex.reset_with_new_str(str(json_dat['map_width']))
+	digitinput_mapsizey.reset_with_new_str(str(json_dat['map_height']))
+	digitinput_playerx.reset_with_new_str(str(spos_quant[0]))
+	digitinput_playery.reset_with_new_str(str(spos_quant[1]))
+	draggable_playerstart.center_pos = Vector2(json_dat['start_pos'][0], json_dat['start_pos'][1])
+	#
+	editor_tilemap = np.array(json_dat['tile_dat']).T
+	#
+	ob_keys = [n[1] for n in sorted([(int(k[9:]), k) for k in json_dat.keys() if k[:9] == 'obstacle_'])]
+	editor_obdata = []
+	for k in ob_keys:
+		startbox = json_dat[k]['startbox']
+		endbox   = json_dat[k]['endbox']
+		revive   = json_dat[k]['revive']
+		actions  = json_dat[k]['actions']
+		#
+		loc_keys = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'loc_'])]
+		exp_keys = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'exp_'])]
+		#
+		editor_obdata.append(get_blank_obdata(Vector2(0,0), font_dict, revive_img))
+		editor_obdata[-1][0].center_pos = Vector2(revive[0], revive[1])
+		editor_obdata[-1][1].tl = Vector2(startbox[0], startbox[1])
+		editor_obdata[-1][1].br = Vector2(startbox[2], startbox[3])
+		editor_obdata[-1][2].tl = Vector2(endbox[0], endbox[1])
+		editor_obdata[-1][2].br = Vector2(endbox[2], endbox[3])
+		for k2 in loc_keys:
+			loc_pos = json_dat[k][k2]
+			editor_obdata[-1][3].append(ResizableBox(Vector2(loc_pos[0], loc_pos[1]),
+			                                         Vector2(loc_pos[2], loc_pos[3]),
+			                                         str(k2[4:]),
+			                                         font_dict['small_w']))
+		#
+		for action_tuple in actions:
+			if action_tuple[0] == 'move_player':
+				editor_obdata[-1][4]['move_mode'] = action_tuple[1]
+			elif action_tuple[0] == 'add_lives':
+				editor_obdata[-1][4]['life_mode'] = 0
+				editor_obdata[-1][4]['life_amount'] = action_tuple[1]
+			elif action_tuple[0] == 'set_lives':
+				editor_obdata[-1][4]['life_mode'] = 1
+				editor_obdata[-1][4]['life_amount'] = action_tuple[1]
+			elif action_tuple[0] == 'change_music':
+				editor_obdata[-1][4]['music'] = action_tuple[1]
+		#
+		editor_obdata[-1][5] = [{'explode_locs':{},'delay':0} for n in exp_keys]
+		for exp_num,k2 in enumerate(exp_keys):
+			exp_dat = json_dat[k][k2]
+			exp_ind = int(k2[4:]) - 1
+			for i in range(len(exp_dat[0])):
+				editor_obdata[-1][5][exp_num]['explode_locs'][int(exp_dat[0][i])-1] = exp_dat[1][i]
+			editor_obdata[-1][5][exp_num]['delay'] = exp_dat[2]
+	#
+	return (editor_tilemap, editor_obdata)

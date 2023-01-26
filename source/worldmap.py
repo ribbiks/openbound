@@ -48,14 +48,14 @@ class WorldMap:
 		# parse obstacles
 		#
 		self.obstacles = {}
-		ob_keys = [k for k in json_dat.keys() if k[:9] == 'obstacle_']
+		ob_keys = [n[1] for n in sorted([(int(k[9:]), k) for k in json_dat.keys() if k[:9] == 'obstacle_'])]
 		for k in ob_keys:
 			my_ob_key  = int(k[9:])
 			startbox   = json_dat[k]['startbox']
 			endbox     = json_dat[k]['endbox']
 			revive     = json_dat[k]['revive']
-			loc_keys   = [k2 for k2 in json_dat[k].keys() if k2[:4] == 'loc_']
-			event_keys = [k2 for k2 in json_dat[k].keys() if k2[:4] == 'exp_']
+			loc_keys   = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'loc_'])]
+			event_keys = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'exp_'])]
 			self.obstacles[my_ob_key] = Obstacle((Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
 			                                     (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
 			                                     Vector2(revive[0], revive[1]),

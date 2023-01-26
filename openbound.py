@@ -28,7 +28,7 @@ from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
-from source.util             import get_file_paths, write_map_data_to_json
+from source.util             import get_blank_obdata, get_file_paths, read_map_data_from_json, write_map_data_to_json
 from source.worldmap         import TileMap, WorldMap
 
 GAME_VERS = 'OpenBound v0.1'
@@ -731,7 +731,12 @@ def main(raw_args=None):
 		#
 		# MAP SELECTION MENU
 		#
-		elif current_gamestate == GameState.MAP_SELECT:
+		elif current_gamestate in [GameState.MAP_SELECT, GameState.MAP_SELECT_E]:
+			#
+			if current_gamestate == GameState.MAP_SELECT:
+				widget_mapselect_play.text_data['play'] = 'Play'
+			elif current_gamestate == GameState.MAP_SELECT_E:
+				widget_mapselect_play.text_data['play'] = 'Open in editor'
 			#
 			menu_widgets = [widget_mapselect_title,
 			                widget_mapselect_menu,
@@ -761,7 +766,10 @@ def main(raw_args=None):
 			for msg in mw_output_msgs:
 				if not transition_alpha:
 					if msg == 'play':
-						next_gamestate   = GameState.BOUNDING
+						if current_gamestate == GameState.MAP_SELECT:
+							next_gamestate = GameState.BOUNDING
+						elif current_gamestate == GameState.MAP_SELECT_E:
+							next_gamestate = GameState.EDITOR_PROPERTIES
 						map_fn_to_load   = mapfn
 						transition_alpha = deque(FADE_SEQUENCE)
 					elif msg == 'back':
@@ -807,6 +815,7 @@ def main(raw_args=None):
 			# update players
 			#
 			my_player.tick(world_map)
+			print(current_frame, my_player.state)
 
 			#
 			# update obstacles
@@ -1082,34 +1091,7 @@ def main(raw_args=None):
 							currentob_selection_menu.index = num_obs
 							currentob_selection_menu.current_range = (max(num_obs+1-currentob_selection_menu.num_rows, 0), num_obs+1)
 							new_pos = (int(current_window_offset.x/GRID_SIZE), int(current_window_offset.y/GRID_SIZE))
-							editor_obdata.append([DraggableObject(Vector2(new_pos[0] + 2*GRID_SIZE, new_pos[1] + 2*GRID_SIZE),
-							                      	              PLAYER_RADIUS,
-							                                      int(GRID_SIZE/2),
-							                                      Vector2(0,0)),
-							                      ResizableBox(Vector2(new_pos[0] + 4*GRID_SIZE, new_pos[1]),
-								                               Vector2(new_pos[0] + 8*GRID_SIZE, new_pos[1] + 4*GRID_SIZE),
-								                               'start',
-								                               font_dict['small_w'],
-								                               box_color=Color.PAL_GREEN_4,
-								                               box_color_highlight=Color.PAL_GREEN_3,
-								                               line_color=Color.PAL_GREEN_3,
-								                               line_color_highlight=Color.PAL_GREEN_1),
-							                      ResizableBox(Vector2(new_pos[0] + 8*GRID_SIZE,  new_pos[1]),
-								                               Vector2(new_pos[0] + 12*GRID_SIZE, new_pos[1] + 4*GRID_SIZE),
-								                               'end',
-								                               font_dict['small_w'],
-								                               box_color=Color.PAL_RED_4,
-								                               box_color_highlight=Color.PAL_RED_3,
-								                               line_color=Color.PAL_RED_3,
-								                               line_color_highlight=Color.PAL_RED_1),
-							                      [],
-							                      {'move_mode':0,	# 0 = no move, 1 = move to revive
-							                       'life_mode':0,	# 0 = add,     1 = set
-							                       'life_amount':0,
-							                       'music':''},
-							                      [{'explode_locs':{},	# explode_locs[locname] = unit
-							                        'delay':0}]])
-							editor_obdata[-1][0].add_image(player_img_fns[1])
+							editor_obdata.append(get_blank_obdata(new_pos, font_dict, player_img_fns[1]))
 							adding_new_ob = True
 						#
 						#
@@ -1153,6 +1135,7 @@ def main(raw_args=None):
 					obinfo_life_menu.is_selected = False
 					digitinput_oblives.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['life_amount']))
 					textinput_musicname.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['music']))
+					digitinput_expdelay.reset_with_new_str(str(editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']))
 				#
 				if editor_currentobnum != None:
 					widget_locationsmode_obselectedtext.draw(screen)
@@ -1177,8 +1160,12 @@ def main(raw_args=None):
 						exploding_loc.update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
 						exploding_loc.draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
-					editor_obdata[editor_currentobnum][1].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
-					editor_obdata[editor_currentobnum][2].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+					if editor_obdata[editor_currentobnum][0].is_selected:
+						editor_obdata[editor_currentobnum][1].update(mouse_pos_map, False, False, mapobject_limits)
+						editor_obdata[editor_currentobnum][2].update(mouse_pos_map, False, False, mapobject_limits)
+					else:
+						editor_obdata[editor_currentobnum][1].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+						editor_obdata[editor_currentobnum][2].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
 					editor_obdata[editor_currentobnum][1].draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][2].draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][0].draw(screen, current_window_offset)
@@ -1400,10 +1387,11 @@ def main(raw_args=None):
 							                   digitinput_rating,
 							                   digitinput_mapsizex,
 							                   digitinput_mapsizey,
+							                   digitinput_playerx,
+							                   digitinput_playery,
 							                   draggable_playerstart,
 							                   #
 							                   editor_tilemap,
-							                   #
 							                   editor_obdata)
 							out_json_fn  = os.path.join(MAP_DIR, textinput_mapname.get_value().replace(' ','_') + '.json')
 							save_message = write_map_data_to_json(out_json_fn, all_map_objects)
@@ -1464,7 +1452,7 @@ def main(raw_args=None):
 			if current_opacity >= 255:
 				current_gamestate = next_gamestate
 				#
-				if current_gamestate == GameState.MAP_SELECT:
+				if current_gamestate in [GameState.MAP_SELECT, GameState.MAP_SELECT_E]:
 					all_map_names = [n for n in os.listdir(MAP_DIR) if n[-5:] == '.json']
 					all_map_files = get_file_paths(MAP_DIR, all_map_names)
 					for i in range(len(all_map_names)):
@@ -1474,12 +1462,45 @@ def main(raw_args=None):
 				if current_gamestate == GameState.BOUNDING:
 					if map_fn_to_load != None:
 						#
-						# load world and place player 1
+						# load map json and set up world objects
 						#
 						world_map = WorldMap(map_fn_to_load, tile_fns, font_dict)
 						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
 						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0])
 						my_player.num_lives = world_map.init_lives
+						map_fn_to_load = None
+				#
+				elif current_gamestate == GameState.EDITOR_PROPERTIES:
+					if map_fn_to_load != None:
+						all_map_objects = (textinput_mapname,
+						                   textinput_author,
+						                   textinput_description,
+						                   digitinput_lives,
+						                   digitinput_rating,
+						                   digitinput_mapsizex,
+						                   digitinput_mapsizey,
+						                   digitinput_playerx,
+						                   digitinput_playery,
+						                   draggable_playerstart)
+						(editor_tilemap, editor_obdata) = read_map_data_from_json(map_fn_to_load, all_map_objects, font_dict, player_img_fns[1])
+						#
+						currentob_selection_menu.content       = [('Obstacle '+str(n+1),) for n in range(len(editor_obdata))]
+						currentob_selection_menu.index         = 0
+						currentob_selection_menu.current_range = (0, min(len(editor_obdata), currentob_selection_menu.num_rows))
+						if currentob_selection_menu.content:
+							editor_currentobnum  = 0
+							editor_currentexpnum = 0
+							obinfo_move_menu.index = editor_obdata[editor_currentobnum][4]['move_mode']
+							obinfo_life_menu.index = editor_obdata[editor_currentobnum][4]['life_mode']
+							obinfo_move_menu.is_selected = False
+							obinfo_life_menu.is_selected = False
+							digitinput_oblives.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['life_amount']))
+							textinput_musicname.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['music']))
+							digitinput_expdelay.reset_with_new_str(str(editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']))
+							for i in range(len(editor_obdata)):
+								my_exp_dict = editor_obdata[i][5][editor_currentexpnum]['explode_locs']
+								for k in my_exp_dict.keys():
+									editor_obdata[i][3][k].change_icon(explosion_imgs[my_exp_dict[k]])
 						map_fn_to_load = None
 			if not transition_alpha:
 				next_gamestate = None
