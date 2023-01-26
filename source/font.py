@@ -95,12 +95,13 @@ class Font():
 	# returns True is everything can be rendered, False if text gets truncated
 	#
 	def can_be_fully_rendered(self, text, max_width=-1, num_rows=1):
-		x_trim = len(text)
-		while x_trim >= 1 and text[x_trim-1] == ' ':
+		sanitized_text = self.sanitize(text)
+		x_trim = len(sanitized_text)
+		while x_trim >= 1 and sanitized_text[x_trim-1] == ' ':
 			x_trim -= 1
 		if x_trim == 0:
 			return True
-		text_trimmed = text[:x_trim]
+		text_trimmed = sanitized_text[:x_trim]
 		#
 		x_offset = [Vector2(0,0)]
 		for char in text_trimmed:
@@ -120,14 +121,14 @@ class Font():
 	#
 	#
 	def render(self, screen, text, pos, centered=False, max_width=-1, num_rows=1):
-		#
-		x_trim = len(text)
-		while x_trim >= 1 and text[x_trim-1] == ' ':
+		sanitized_text = self.sanitize(text)
+		x_trim = len(sanitized_text)
+		while x_trim >= 1 and sanitized_text[x_trim-1] == ' ':
 			x_trim -= 1
 		# word is only spaces, nothing to render
 		if x_trim == 0:
 			return None
-		text_trimmed = text[:x_trim]
+		text_trimmed = sanitized_text[:x_trim]
 		#
 		x_offset = [Vector2(0,0)]
 		for char in text_trimmed:

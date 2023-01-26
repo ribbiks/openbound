@@ -130,7 +130,7 @@ class MapMenu(SelectionMenu):
 			                     int(json_dat['difficulty']),		# 5 - sort by diff
 			                     int(json_dat['map_width']),		# 6
 			                     int(json_dat['map_height']),		# 7
-			                     int(json_dat['starting_lives'])))	# 8
+			                     int(json_dat['init_lives'])))	    # 8
 		self.resort(sort_field)
 		self.empty_message = 'no maps found.'
 

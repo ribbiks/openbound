@@ -28,7 +28,7 @@ from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
-from source.util             import get_file_paths
+from source.util             import get_file_paths, write_map_data_to_json
 from source.worldmap         import TileMap, WorldMap
 
 GAME_VERS = 'OpenBound v0.1'
@@ -465,7 +465,8 @@ def main(raw_args=None):
 	widget_explosionsmode_control_6 = UIWidget()
 	widget_explosionsmode_control_6.add_rect(Vector2(tl.x+4, tl.y+40), Vector2(tl.x+56, tl.y+64), Color.PAL_BLUE_4, border_radius=12, mouseover_condition=(True,False))
 	widget_explosionsmode_control_6.add_rect(Vector2(tl.x+4, tl.y+40), Vector2(tl.x+56, tl.y+64), Color.PAL_BLUE_3, border_radius=12, mouseover_condition=(False,True))
-	widget_explosionsmode_control_6.add_text(tl + Vector2(30,52), 'Insert', 'insert', font_dict['small_w'], is_centered=True)
+	widget_explosionsmode_control_6.add_text(tl + Vector2(30,48), 'Insert', 'insert', font_dict['small_w'], is_centered=True)
+	widget_explosionsmode_control_6.add_text(tl + Vector2(30,57), 'copy',   'copy',   font_dict['small_w'], is_centered=True)
 	widget_explosionsmode_control_6.add_return_message('insert')
 	#
 	widget_explosionsmode_control_7 = UIWidget()
@@ -1132,6 +1133,7 @@ def main(raw_args=None):
 					editor_obdata        = []
 					editor_currentobnum  = None
 					editor_currentexpnum = None
+					digitinput_expdelay.reset_with_new_str('0')
 				elif adding_new_ob or changing_selected_ob:
 					editor_currentobnum    = currentob_selection_menu.index
 					editor_currentexpnum   = 0
@@ -1177,9 +1179,28 @@ def main(raw_args=None):
 						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
 						smallest_loc = sorted(smallest_loc)[0][1]
 						del editor_obdata[editor_currentobnum][3][smallest_loc]
+						# decrement loc names
 						for exploding_loc in editor_obdata[editor_currentobnum][3]:
 							if int(exploding_loc.text) > smallest_loc+1:
 								exploding_loc.text = str(int(exploding_loc.text)-1)
+						# decrement loc index in explosion data
+						for expnum in range(len(editor_obdata[editor_currentobnum][5])):
+							for loc_k in sorted(list(editor_obdata[editor_currentobnum][5][expnum]['explode_locs'].keys())):
+								if loc_k == smallest_loc:
+									del editor_obdata[editor_currentobnum][5][expnum]['explode_locs'][loc_k]
+								elif loc_k > smallest_loc:
+									editor_obdata[editor_currentobnum][5][expnum]['explode_locs'][loc_k-1] = editor_obdata[editor_currentobnum][5][expnum]['explode_locs'][loc_k]
+									del editor_obdata[editor_currentobnum][5][expnum]['explode_locs'][loc_k]
+						# delete counts if they no longer have any explosions
+						del_list = []
+						for expnum in range(len(editor_obdata[editor_currentobnum][5])-1,-1,-1):
+							if editor_obdata[editor_currentobnum][5][expnum]['explode_locs'] == {}:
+								del_list.append(expnum)
+						for di in del_list:
+							del editor_obdata[editor_currentobnum][5][di]
+						# reset explosion count index if we deleted any counts
+						if del_list:
+							editor_currentexpnum = 0
 					#
 					# want to add a new loc?
 					#
@@ -1214,19 +1235,26 @@ def main(raw_args=None):
 				#
 				digitinput_expdelay.update(mouse_pos_screen, left_clicking, return_pressed, pygame_events)
 				digitinput_expdelay.draw(screen)
-				editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay'] = digitinput_expdelay.get_value()
+				if editor_currentobnum != None:
+					editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay'] = digitinput_expdelay.get_value()
 				#
 				any_control_messages = False
 				for msg in mw_output_msgs_2:
 					if editor_currentobnum != None and not transition_alpha:
+						#
+						current_count_is_empty = editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'] == {}
+						last_i = len(editor_obdata[editor_currentobnum][5]) - 1
+						last_count_is_empty = editor_obdata[editor_currentobnum][5][last_i]['explode_locs'] == {}
+						#
 						if msg == '<<':
 							editor_currentexpnum = 0
 							any_control_messages = True
+						#
 						elif msg == '<':
 							editor_currentexpnum = max(editor_currentexpnum - 1, 0)
 							any_control_messages = True
+						#
 						elif msg == '>':
-							current_count_is_empty = editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'] == {}
 							if not current_count_is_empty:
 								if editor_currentexpnum < len(editor_obdata[editor_currentobnum][5]) - 1:
 									editor_currentexpnum += 1
@@ -1235,13 +1263,30 @@ def main(raw_args=None):
 									editor_currentexpnum += 1
 									editor_obdata[editor_currentobnum][5].append({'explode_locs':{}, 'delay':prev_delay})
 								any_control_messages = True
+						#
 						elif msg == '>>':
-							last_i = len(editor_obdata[editor_currentobnum][5]) - 1
-							last_count_is_empty = editor_obdata[editor_currentobnum][5][last_i]['explode_locs'] == {}
 							if last_count_is_empty:
 								editor_currentexpnum = last_i - 1
 							else:
 								editor_currentexpnum = last_i
+							any_control_messages = True
+						#
+						elif msg == 'insert':
+							if not current_count_is_empty:
+								editor_obdata[editor_currentobnum][5].insert(editor_currentexpnum,
+								                                             {'explode_locs':{k:editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][k]
+								                                              for k in editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'].keys()},
+								                                              'delay':editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']})
+								editor_currentexpnum += 1
+							any_control_messages = True
+						#
+						elif msg == 'delete':
+							if len(editor_obdata[editor_currentobnum][5]) > 1:
+								del editor_obdata[editor_currentobnum][5][editor_currentexpnum]
+								if editor_currentexpnum == len(editor_obdata[editor_currentobnum][5]):
+									editor_currentexpnum -= 1
+							else:
+								editor_obdata[editor_currentobnum][5] = [{'explode_locs':{}, 'delay':0}]
 							any_control_messages = True
 				#
 				if any_control_messages:
@@ -1300,8 +1345,14 @@ def main(raw_args=None):
 					if left_clicking and mouse_in_editor_region and any(locs_mouseover) and selected_exploding_unit != None:
 						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
 						smallest_loc = sorted(smallest_loc)[0][1]
-						editor_obdata[editor_currentobnum][3][smallest_loc].change_icon(explosion_imgs[selected_exploding_unit])
-						editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][smallest_loc] = selected_exploding_unit
+						tele_origin_placed      = any([unit_name == 'tele_origin' for (loc_i, unit_name) in editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'].items()])
+						tele_destination_placed = any([unit_name == 'tele_destination' for (loc_i, unit_name) in editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'].items()])
+						explosion_is_placeable  = (selected_exploding_unit not in ['tele_origin', 'tele_destination'] or
+						                           (selected_exploding_unit == 'tele_origin' and not tele_origin_placed) or
+						                           (selected_exploding_unit == 'tele_destination' and not tele_destination_placed))
+						if explosion_is_placeable:
+							editor_obdata[editor_currentobnum][3][smallest_loc].change_icon(explosion_imgs[selected_exploding_unit])
+							editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][smallest_loc] = selected_exploding_unit
 					#
 					# are we removing an explosion?
 					#
@@ -1309,7 +1360,8 @@ def main(raw_args=None):
 						smallest_loc = [(editor_obdata[editor_currentobnum][3][n].get_area(), n) for n in range(len(editor_obdata[editor_currentobnum][3])) if locs_mouseover[n]]
 						smallest_loc = sorted(smallest_loc)[0][1]
 						editor_obdata[editor_currentobnum][3][smallest_loc].clear_icon()
-						del editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][smallest_loc]
+						if smallest_loc in editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs']:
+							del editor_obdata[editor_currentobnum][5][editor_currentexpnum]['explode_locs'][smallest_loc]
 					#
 					for exploding_loc in editor_obdata[editor_currentobnum][3]:
 						exploding_loc.draw_icon(screen, current_window_offset)
@@ -1331,7 +1383,21 @@ def main(raw_args=None):
 				for msg in mw_output_msgs_2:
 					if not transition_alpha:
 						if msg == 'save':
-							pass
+							all_map_objects = (textinput_mapname,
+							                   textinput_author,
+							                   textinput_description,
+							                   digitinput_lives,
+							                   digitinput_rating,
+							                   digitinput_mapsizex,
+							                   digitinput_mapsizey,
+							                   draggable_playerstart,
+							                   #
+							                   editor_tilemap,
+							                   #
+							                   editor_obdata)
+							out_json_fn  = os.path.join(MAP_DIR, textinput_mapname.get_value().replace(' ','_') + '.json')
+							save_message = write_map_data_to_json(out_json_fn, all_map_objects)
+							print(save_message)
 						elif msg == 'return':
 							current_gamestate     = previous_editor_state
 							previous_editor_state = GameState.EDITOR_SAVE
@@ -1401,11 +1467,8 @@ def main(raw_args=None):
 						# load world and place player 1
 						#
 						world_map = WorldMap(map_fn_to_load, tile_fns, font_dict)
-						if world_map.p_starts[0] == None:
-							print('No player 1 start found')
-							exit(1)
 						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
-						my_player = Mauzling(world_map.p_starts[0], 0, player_img_fns[0])
+						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0])
 						my_player.num_lives = world_map.init_lives
 						map_fn_to_load = None
 			if not transition_alpha:

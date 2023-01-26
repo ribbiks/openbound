@@ -24,8 +24,8 @@ class WorldMap:
 		self.difficulty = json_dat['difficulty']
 		self.map_width  = json_dat['map_width']
 		self.map_height = json_dat['map_height']
-		self.init_lives = json_dat['starting_lives']
-		self.p_starts   = [Vector2(n[0],n[1]) for n in json_dat['player_starts']]
+		self.init_lives = json_dat['init_lives']
+		self.start_pos  = Vector2(json_dat['start_pos'][0],json_dat['start_pos'][1])
 		self.tile_dat   = np.array(json_dat['tile_dat']).T
 		self.wall_map   = np.zeros((self.map_width, self.map_height))
 		#
@@ -55,7 +55,7 @@ class WorldMap:
 			endbox     = json_dat[k]['endbox']
 			revive     = json_dat[k]['revive']
 			loc_keys   = [k2 for k2 in json_dat[k].keys() if k2[:4] == 'loc_']
-			event_keys = [k2 for k2 in json_dat[k].keys() if k2[:6] == 'event_']
+			event_keys = [k2 for k2 in json_dat[k].keys() if k2[:4] == 'exp_']
 			self.obstacles[my_ob_key] = Obstacle((Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
 			                                     (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
 			                                     Vector2(revive[0], revive[1]),
@@ -66,8 +66,17 @@ class WorldMap:
 				self.obstacles[my_ob_key].add_location(my_loc_key, Vector2(my_loc_dat[0], my_loc_dat[1]), Vector2(my_loc_dat[2], my_loc_dat[3]))
 			for k2 in event_keys:
 				my_event_dat = json_dat[k][k2]
-				if my_event_dat[0] == 'explode_locs':
-					self.obstacles[my_ob_key].add_event_explode_locs(my_event_dat[1], my_event_dat[2], my_event_dat[3])
+				self.obstacles[my_ob_key].add_event_explode_locs(my_event_dat[0], my_event_dat[1], my_event_dat[2])
+
+		#
+		# lets sanitize the map: make sure it's surrounded by unmovable terrain
+		#
+		for i in range(self.wall_map.shape[0]):
+			self.wall_map[i,0] = 1
+			self.wall_map[i,self.wall_map.shape[1]-1] = 1
+		for j in range(self.wall_map.shape[1]):
+			self.wall_map[0,j] = 1
+			self.wall_map[self.wall_map.shape[0]-1,j] = 1
 
 		#
 		# lets construct all the stuff we need for pathfinding
