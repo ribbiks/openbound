@@ -69,8 +69,18 @@ def main(raw_args=None):
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png', 'sq16_gray.png'])
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
-	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png','ovy1.png','ovy2.png','ovy3.png','ovy4.png','ovy5.png'])
-	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png','scourge1.png','scourge2.png','scourge3.png','scourge4.png','scourge5.png'])
+	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png',
+	                                          'ovy1.png', 'ovy1.png',
+	                                          'ovy2.png', 'ovy2.png',
+	                                          'ovy3.png', 'ovy3.png',
+	                                          'ovy4.png', 'ovy4.png',
+	                                          'ovy5.png', 'ovy5.png'])
+	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png', 'scourge0.png',
+	                                          'scourge1.png', 'scourge1.png',
+	                                          'scourge2.png', 'scourge2.png',
+	                                          'scourge3.png', 'scourge3.png',
+	                                          'scourge4.png', 'scourge4.png',
+	                                          'scourge5.png', 'scourge5.png'])
 	tele_icons_fns = get_file_paths(GFX_DIR, ['tele_origin.png', 'tele_dest.png'])
 	#
 	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
