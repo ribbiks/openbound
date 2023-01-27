@@ -2,17 +2,12 @@ import pygame
 
 from pygame.math import Vector2
 
+from source.misc_gfx import clip
+
 #
 # Font class and pixel-art adapted from DaFluffyPotato's pygame tutorial series
 # -- https://youtu.be/Lh-cc5qzDqk
 #
-
-def clip(surf, x, y, x_size, y_size):
-	handle_surf = surf.copy()
-	clipR = pygame.Rect(x,y,x_size,y_size)
-	handle_surf.set_clip(clipR)
-	image = surf.subsurface(handle_surf.get_clip())
-	return image.copy()
 
 COLUMN_DELIMITER_COLOR = (127, 127, 127, 255)
 TEXT_CHARACTER_COLOR   = (  0,   0,   0, 255)

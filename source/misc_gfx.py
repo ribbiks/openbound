@@ -45,6 +45,13 @@ class Color:
 	PAL_RED_3   = (217,  55,  50)
 	PAL_RED_4   = (135,  10,  17)
 
+def clip(surf, x, y, x_size, y_size):
+	handle_surf = surf.copy()
+	clipR = pygame.Rect(x,y,x_size,y_size)
+	handle_surf.set_clip(clipR)
+	image = surf.subsurface(handle_surf.get_clip())
+	return image.copy()
+
 def draw_grid(screen, screensize, gridsize, offset, color):
 	for x in range(0, int(screensize.x)+2, gridsize):
 		p1 = Vector2(x, -gridsize)

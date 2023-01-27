@@ -67,7 +67,7 @@ def main(raw_args=None):
 	MAP_DIR  = os.path.join(py_dir, 'maps')
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
-	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png', 'sq16_gray.png'])
+	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png', 'sq16_gray.png', 'zergling_sprites.png'])
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
 	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png',
 	                                          'ovy1.png', 'ovy1.png',
@@ -101,7 +101,7 @@ def main(raw_args=None):
 	#
 	# initialize pygame
 	#
-	pygame.mixer.pre_init(44100, -16, 2, 2048)	# possibly not necessary?
+	pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=2048)
 	pygame.init()
 	pygame.display.set_caption(GAME_VERS)
 	disp_flags = 0
@@ -116,6 +116,7 @@ def main(raw_args=None):
 	edbar_fade = pygame.Surface(Vector2(RESOLUTION.x, 128))
 	main_clock = pygame.time.Clock()
 	#pygame.event.set_grab(True)
+	pygame.mixer.set_num_channels(16)
 
 	# font objects
 	font_dict = {'small' :     Font(pixel_font_fns[0], Color.PAL_BLACK),
@@ -815,7 +816,6 @@ def main(raw_args=None):
 			# update players
 			#
 			my_player.tick(world_map)
-			print(current_frame, my_player.state)
 
 			#
 			# update obstacles
@@ -839,11 +839,11 @@ def main(raw_args=None):
 			# Terrain / Obstacles ------------------------------------ #
 			world_map.draw(screen, current_window_offset, draw_tiles=True,
 			                                              draw_obs=False,
-			                                              draw_walkable=False,
-			                                              draw_pathing=False)
+			                                              draw_walkable=True,
+			                                              draw_pathing=True)
 
 			# Foreground objects ------------------------------------- #
-			my_player.draw(screen, current_window_offset, draw_bounding_box=True)
+			my_player.draw(screen, current_window_offset, draw_bounding_box=False)
 			my_animations.draw(screen, current_window_offset)
 
 			# Draw UI elements --------------------------------------- #
@@ -1090,7 +1090,7 @@ def main(raw_args=None):
 							currentob_selection_menu.content.append(('Obstacle '+str(num_obs+1),))
 							currentob_selection_menu.index = num_obs
 							currentob_selection_menu.current_range = (max(num_obs+1-currentob_selection_menu.num_rows, 0), num_obs+1)
-							new_pos = (int(current_window_offset.x/GRID_SIZE), int(current_window_offset.y/GRID_SIZE))
+							new_pos = (int(-current_window_offset.x/GRID_SIZE + 0.6)*GRID_SIZE, int(-current_window_offset.y/GRID_SIZE + 0.6)*GRID_SIZE)
 							editor_obdata.append(get_blank_obdata(new_pos, font_dict, player_img_fns[1]))
 							adding_new_ob = True
 						#
@@ -1108,6 +1108,10 @@ def main(raw_args=None):
 							range_start = max(currentob_selection_menu.current_range[0]-1, 0)
 							range_end   = min(range_start+currentob_selection_menu.num_rows, len(currentob_selection_menu.content))
 							currentob_selection_menu.current_range = (range_start, range_end)
+							if editor_currentobnum == range_end:
+								editor_currentobnum -= 1
+							if not currentob_selection_menu.content:
+								editor_currentobnum = None
 				#
 				changing_selected_ob = currentob_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 				currentob_selection_menu.draw(screen)
@@ -1115,7 +1119,7 @@ def main(raw_args=None):
 				# save start actions from current ob (if we have one) before updating ob selection
 				#
 				no_text_menus_selected = not digitinput_oblives.is_selected and not textinput_musicname.is_selected
-				if (no_text_menus_selected or adding_new_ob or changing_selected_ob) and editor_currentobnum != None and currentob_selection_menu.content:
+				if (no_text_menus_selected or adding_new_ob or changing_selected_ob) and editor_currentobnum != None:
 					editor_obdata[editor_currentobnum][4]['move_mode']   = obinfo_move_menu.index
 					editor_obdata[editor_currentobnum][4]['life_mode']   = obinfo_life_menu.index
 					editor_obdata[editor_currentobnum][4]['life_amount'] = digitinput_oblives.get_value()
@@ -1135,6 +1139,7 @@ def main(raw_args=None):
 					obinfo_life_menu.is_selected = False
 					digitinput_oblives.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['life_amount']))
 					textinput_musicname.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['music']))
+					print(editor_currentexpnum, len(editor_obdata[editor_currentobnum][5]))
 					digitinput_expdelay.reset_with_new_str(str(editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']))
 				#
 				if editor_currentobnum != None:
@@ -1466,7 +1471,7 @@ def main(raw_args=None):
 						#
 						world_map = WorldMap(map_fn_to_load, tile_fns, font_dict)
 						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
-						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0])
+						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0], player_img_fns[2])
 						my_player.num_lives = world_map.init_lives
 						map_fn_to_load = None
 				#

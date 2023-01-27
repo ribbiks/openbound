@@ -1,3 +1,4 @@
+import bisect
 import math
 import pygame
 
@@ -5,7 +6,7 @@ from collections import deque
 from pygame.math import Vector2
 
 from source.geometry    import angle_clamp, boxes_overlap, point_in_box, SMALL_NUMBER
-from source.misc_gfx    import Color
+from source.misc_gfx    import clip, Color
 from source.pathfinding import pathfind
 from source.globals     import GRID_SIZE, PLAYER_RADIUS
 
@@ -42,10 +43,31 @@ class OrderType:
 	QUEUE = 1
 
 #
+# sprite stuff
+#
+SPRITE_SIZE   = 42
+SPRITE_BORDER = 1
+SPRITE_DIMS   = (9,7)
+NUM_ROTATIONS = 16
+ANGLE_PER_ROT = 360/NUM_ROTATIONS
+ANGLE_OFF     = ANGLE_PER_ROT/2
+IDLE_ROW      = 6
+SPRITE_OFFSET = [Vector2(-1,-1), Vector2(-1,-2), Vector2(-1,-6), Vector2(-1,-4), Vector2(-1,-2), Vector2(-1,-1), Vector2(-1,-1)]
+
+SPRITE_ANGLE_IND_BOUNDS = [0] + [n*ANGLE_PER_ROT + ANGLE_OFF for n in range(NUM_ROTATIONS)] + [360+SMALL_NUMBER]
+# (spritesheet_col, is_mirrored)
+rotation_ind_to_spritesheet_column = { 0:(4,False),  1:(3,False),  2:(2,False),  3:(1,False),
+                                       4:(0,False),  5:(1,True),   6:(2,True),   7:(3,True),
+                                       8:(4,True),   9:(5,True),  10:(6,True),  11:(7,True),
+                                      12:(8,False), 13:(7,False), 14:(6,False), 15:(5,False)}
+def get_sprite_column(angle):
+	return rotation_ind_to_spritesheet_column[(bisect.bisect(SPRITE_ANGLE_IND_BOUNDS,angle)-1)%NUM_ROTATIONS]
+
+#
 #
 #
 class Mauzling:
-	def __init__(self, pos, angle, image_filename):
+	def __init__(self, pos, angle, image_filename, spritesheet_filename):
 		self.position    = pos
 		self.angle       = angle_clamp(angle)
 		self.radius      = PLAYER_RADIUS
@@ -58,6 +80,18 @@ class Mauzling:
 		self.order_queue = deque([])	# orders we have accepted
 		self.img         = pygame.image.load(image_filename).convert_alpha()
 		self.num_lives   = 0
+		#
+		base_img = pygame.image.load(spritesheet_filename).convert_alpha()
+		self.separated_sprites = []
+		self.separated_sprites_flipped = []
+		for x in range(SPRITE_DIMS[0]):
+			self.separated_sprites.append([])
+			self.separated_sprites_flipped.append([])
+			for y in range(SPRITE_DIMS[1]):
+				rect  = pygame.Rect([x*SPRITE_SIZE + 1, y*SPRITE_SIZE + 1, SPRITE_SIZE - 2, SPRITE_SIZE - 2])
+				self.separated_sprites[-1].append(pygame.Surface(rect.size).convert_alpha())
+				self.separated_sprites[-1][-1].blit(base_img, (0, 0), rect)
+				self.separated_sprites_flipped[-1].append(pygame.transform.flip(self.separated_sprites[-1][-1], True, False))
 	
 	#
 	#
@@ -65,13 +99,21 @@ class Mauzling:
 	def draw(self, screen, offset, draw_bounding_box=False):
 		if self.state != PlayerState.DEAD:
 			if self.is_selected:
-				ellipse_bounds = [self.bbox[0].x + offset.x - PLAYER_RADIUS/2,
-				                  self.bbox[0].y + offset.y + PLAYER_RADIUS,
-				                  3*PLAYER_RADIUS,
-				                  2*PLAYER_RADIUS]
+				el_tl = Vector2(self.bbox[0].x - 2 + offset.x, self.bbox[0].y + offset.y + 10)
+				ellipse_bounds = [el_tl.x, el_tl.y, 2*PLAYER_RADIUS + 5, 13]
 				pygame.draw.ellipse(screen, Color.SEL_ELLIPSE, ellipse_bounds, width=1)
-			rotated_image = pygame.transform.rotate(self.img, self.angle)
-			new_rect = rotated_image.get_rect(center=self.img.get_rect(center=self.position+offset).center)
+			#rotated_image = pygame.transform.rotate(self.img, self.angle)
+			my_sprite_inds = get_sprite_column(self.angle)
+			if self.state in [PlayerState.IDLE, PlayerState.DELAY, PlayerState.DELAY_Q]:
+				my_iscript_ind = IDLE_ROW
+			else:
+				# need to decrement by one to get current animation frame because tick() already incremented it
+				my_iscript_ind = (self.iscript_ind + len(MOVE_CYCLE) - 1)%len(MOVE_CYCLE)
+			if my_sprite_inds[1]:
+				rotated_image = self.separated_sprites_flipped[my_sprite_inds[0]][my_iscript_ind]
+			else:
+				rotated_image = self.separated_sprites[my_sprite_inds[0]][my_iscript_ind]
+			new_rect = rotated_image.get_rect(center=self.img.get_rect(center=self.position+SPRITE_OFFSET[my_iscript_ind]+offset).center)
 			screen.blit(rotated_image, new_rect)
 			if draw_bounding_box:
 				edges_to_draw = [(Vector2(self.bbox[0].x, self.bbox[0].y), Vector2(self.bbox[1].x, self.bbox[0].y)),
