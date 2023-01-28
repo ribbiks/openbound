@@ -784,16 +784,19 @@ def main(raw_args=None):
 				transition_alpha = deque(FADE_SEQUENCE)
 
 		#
+		#
 		# WE ARE BOUNDING.
 		#
+		#
 		elif current_gamestate == GameState.BOUNDING or current_gamestate == GameState.PAUSE_MENU:
+			#
+			current_mapsize = world_map.get_mapsize()
+			mouse_in_playable_maparea = point_in_box_excl(mouse_pos_map, Vector2(0,0), current_mapsize)
 			#
 			if current_gamestate == GameState.BOUNDING:
 				current_volume = 0.350
 				#
 				# processing player inputs
-				#
-				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, RESOLUTION)
 				#
 				if left_released and selection_box[0] != None:
 					if (selection_box[1] - selection_box[0]).length() < 4:
@@ -801,7 +804,7 @@ def main(raw_args=None):
 					else:
 						my_player.check_selection_box([selection_box[0] - current_window_offset, selection_box[1] - current_window_offset])
 				#
-				if right_clicking:
+				if right_clicking and mouse_in_playable_maparea:
 					draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
 					if draw_cursor:
 						my_cursor.start_click_animation(mouse_pos_screen, shift_pressed)
@@ -853,6 +856,8 @@ def main(raw_args=None):
 			#
 			if current_gamestate == GameState.BOUNDING:
 				my_cursor.draw(screen)
+			#
+			current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, RESOLUTION)
 
 			#
 			# PAUSE MENU
@@ -1147,16 +1152,24 @@ def main(raw_args=None):
 					#
 					# draw locs for currently selected ob
 					#
-					for exploding_loc in editor_obdata[editor_currentobnum][3]:
-						exploding_loc.update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
-						exploding_loc.draw(screen, current_window_offset, mouse_in_editor_region)
-					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+					box_actions = (dragaction_activation, dragaction_released)
+					#
+					editor_obdata[editor_currentobnum][0].update(mouse_pos_map, box_actions[0], box_actions[1], mapobject_limits)
 					if editor_obdata[editor_currentobnum][0].is_selected:
-						editor_obdata[editor_currentobnum][1].update(mouse_pos_map, False, False, mapobject_limits)
-						editor_obdata[editor_currentobnum][2].update(mouse_pos_map, False, False, mapobject_limits)
-					else:
-						editor_obdata[editor_currentobnum][1].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
-						editor_obdata[editor_currentobnum][2].update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
+						box_actions = (False, False)
+					#
+					for exploding_loc in editor_obdata[editor_currentobnum][3]:
+						exploding_loc.update(mouse_pos_map, box_actions[0], box_actions[1], mapobject_limits)
+						if exploding_loc.is_selected:
+							box_actions = (False, False)
+					#
+					editor_obdata[editor_currentobnum][1].update(mouse_pos_map, box_actions[0], box_actions[1], mapobject_limits)
+					if editor_obdata[editor_currentobnum][1].is_selected:
+						box_actions = (False, False)
+					editor_obdata[editor_currentobnum][2].update(mouse_pos_map, box_actions[0], box_actions[1], mapobject_limits)
+					#
+					for exploding_loc in editor_obdata[editor_currentobnum][3]:
+						exploding_loc.draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][1].draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][2].draw(screen, current_window_offset, mouse_in_editor_region)
 					editor_obdata[editor_currentobnum][0].draw(screen, current_window_offset)

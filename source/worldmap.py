@@ -129,6 +129,9 @@ class WorldMap:
 		self.collision = pf_collision_scaled
 		self.regionmap = pf_regionmap
 
+	def get_mapsize(self):
+		return Vector2(self.wall_map.shape[0]*GRID_SIZE, self.wall_map.shape[1]*GRID_SIZE)
+
 	#
 	#
 	#
