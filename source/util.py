@@ -9,6 +9,7 @@ from source.draggableobject import DraggableObject
 from source.misc_gfx        import Color
 from source.globals         import GRID_SIZE, PLAYER_RADIUS
 from source.resizablebox    import ResizableBox
+from source.tile_data       import TILE_DATA
 
 def exists_and_is_nonzero(fn):
 	if os.path.isfile(fn):
@@ -52,8 +53,6 @@ def write_map_data_to_json(out_fn, all_map_objects):
 	 digitinput_rating,
 	 digitinput_mapsizex,
 	 digitinput_mapsizey,
-	 digitinput_playerx,
-	 digitinput_playery,
 	 draggable_playerstart,
 	 #
 	 editor_tilemap,
@@ -61,9 +60,31 @@ def write_map_data_to_json(out_fn, all_map_objects):
 	#
 	if not textinput_mapname.get_value():
 		return 'Cannot save map: mapname is empty'
+	#
+	wall_map = np.zeros((editor_tilemap.shape[0], editor_tilemap.shape[1]))
+	for i in range(editor_tilemap.shape[0]):
+		for j in range(editor_tilemap.shape[1]):
+			(is_wall, name, image_fn) = TILE_DATA[editor_tilemap[i,j]]
+			wall_map[i,j] = is_wall
+	for i in range(wall_map.shape[0]):
+		wall_map[i,0] = 1
+		wall_map[i,wall_map.shape[1]-1] = 1
+	for j in range(wall_map.shape[1]):
+		wall_map[0,j] = 1
+		wall_map[wall_map.shape[0]-1,j] = 1
+	v = PLAYER_RADIUS - 0.01
+	check_pos = [draggable_playerstart.center_pos + Vector2(-v,-v),
+	             draggable_playerstart.center_pos + Vector2( v,-v),
+	             draggable_playerstart.center_pos + Vector2( v, v),
+	             draggable_playerstart.center_pos + Vector2(-v, v)]
+	for pos in check_pos:
+		if wall_map[int(pos.x/GRID_SIZE),int(pos.y/GRID_SIZE)]:
+			return 'Cannot save map: player position is inside a wall'
+	#
 	overwriting_existing = False
 	if exists_and_is_nonzero(out_fn):
 		overwriting_existing = True
+	#
 	with open(out_fn, 'w') as f:
 		f.write('{\n')
 		f.write('    "map_name":   "' + str(textinput_mapname.get_value()) + '",\n')
@@ -78,7 +99,10 @@ def write_map_data_to_json(out_fn, all_map_objects):
 			if j == 0:
 				f.write('    "tile_dat":   [[' + ','.join([str(n) for n in editor_tilemap[:,j].tolist()]) + '],\n')
 			elif j == editor_tilemap.shape[1] - 1:
-				f.write('                   [' + ','.join([str(n) for n in editor_tilemap[:,j].tolist()]) + ']],\n')
+				if len(editor_obdata):
+					f.write('                   [' + ','.join([str(n) for n in editor_tilemap[:,j].tolist()]) + ']],\n')
+				else:
+					f.write('                   [' + ','.join([str(n) for n in editor_tilemap[:,j].tolist()]) + ']]\n')
 			else:
 				f.write('                   [' + ','.join([str(n) for n in editor_tilemap[:,j].tolist()]) + '],\n')
 		for i,ob_data in enumerate(editor_obdata):
@@ -177,8 +201,6 @@ def read_map_data_from_json(in_fn, all_map_objects, font_dict, revive_img):
 	 digitinput_rating,
 	 digitinput_mapsizex,
 	 digitinput_mapsizey,
-	 digitinput_playerx,
-	 digitinput_playery,
 	 draggable_playerstart) = all_map_objects
 	#
 	with open(in_fn,'r') as f:
@@ -193,8 +215,6 @@ def read_map_data_from_json(in_fn, all_map_objects, font_dict, revive_img):
 	digitinput_rating.reset_with_new_str(str(json_dat['difficulty']))
 	digitinput_mapsizex.reset_with_new_str(str(json_dat['map_width']))
 	digitinput_mapsizey.reset_with_new_str(str(json_dat['map_height']))
-	digitinput_playerx.reset_with_new_str(str(spos_quant[0]))
-	digitinput_playery.reset_with_new_str(str(spos_quant[1]))
 	draggable_playerstart.center_pos = Vector2(json_dat['start_pos'][0], json_dat['start_pos'][1])
 	#
 	editor_tilemap = np.array(json_dat['tile_dat']).T

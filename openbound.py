@@ -141,14 +141,16 @@ def main(raw_args=None):
 	                  'tele_origin'      : my_animations.all_animations['tele_icons'][0],
 	                  'tele_destination' : my_animations.all_animations['tele_icons'][1]}
 
-	# initial geometry stuff
-	DEFAULT_PLAYER_START  = Vector2(1,1)
-	DEFAULT_MAP_DIM       = Vector2(32,32)
+	# cursor object
+	my_cursor = Cursor(cursor_img_fns)
+
+	# initial geometry / gfx stuff
+	DEFAULT_PLAYER_START  = Vector2(32,32)	# in map units
+	DEFAULT_MAP_DIM       = Vector2(64,64)	# in 1x1 tiles
+	DEFAULT_MAP_LIFECOUNT = 100
+	DEFAULT_MAP_RATING    = 5
 	current_map_bounds    = DEFAULT_MAP_DIM*GRID_SIZE
 	current_window_offset = Vector2(0, 0)
-	selection_box         = [None, None]
-	leftclick_is_down     = False
-	rightclick_is_down    = False
 	editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
 	editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
 	editor_prevtilemapdim = editor_tilemap.shape
@@ -156,11 +158,7 @@ def main(raw_args=None):
 	editor_obdata         = []
 	editor_currentobnum   = None
 	editor_currentexpnum  = None
-
-	# other gfx
-	my_cursor          = Cursor(cursor_img_fns)
-	map_selection_menu = None
-	highlight_walls    = False
+	highlight_walls       = False
 
 	#
 	#
@@ -332,8 +330,6 @@ def main(raw_args=None):
 	widget_propertiesmode_text.add_text(Vector2(tl.x+193, tl.y), 'x',      't6', font_dict['large_w'])
 	tl = Vector2(148, 440 + 5)
 	widget_propertiesmode_text.add_text(Vector2(tl.x, tl.y),     'Rating:', 't7', font_dict['large_w'])
-	widget_propertiesmode_text.add_text(Vector2(tl.x+108, tl.y), 'Start:',  't8', font_dict['large_w'])
-	widget_propertiesmode_text.add_text(Vector2(tl.x+193, tl.y), 'x',       't9', font_dict['large_w'])
 	#
 	VBUFF    = 2
 	(tl, br) = (Vector2(208, 368 + VBUFF), Vector2(384, 392 - VBUFF))
@@ -344,17 +340,14 @@ def main(raw_args=None):
 	textinput_description = TextInput(Vector2(tl.x+192, tl.y), Vector2(br.x+176, br.y+48), font_dict['small_w'], char_offset=Vector2(4,4), num_rows=7, max_chars=500)
 	#
 	(tl, br) = (Vector2(208, 416 + VBUFF), Vector2(240, 440 - VBUFF))
-	digitinput_lives    = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,9999), char_offset=Vector2(6,7), default_val=100, max_chars=4)
+	digitinput_lives    = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,9999), char_offset=Vector2(6,7), default_val=DEFAULT_MAP_LIFECOUNT, max_chars=4)
 	digitinput_mapsizex = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (16,256), char_offset=Vector2(6,7), default_val=int(DEFAULT_MAP_DIM.x),  max_chars=3)
 	digitinput_mapsizey = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (16,256), char_offset=Vector2(6,7), default_val=int(DEFAULT_MAP_DIM.y),  max_chars=3)
 	#
 	(tl, br) = (Vector2(208, 440 + VBUFF), Vector2(240, 464 - VBUFF))
-	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=5, max_chars=2)
-	digitinput_playerx = DigitInput(Vector2(tl.x+96, tl.y),  Vector2(br.x+96, br.y),  font_dict['small_w'], (0,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
-	digitinput_playery = DigitInput(Vector2(tl.x+144, tl.y), Vector2(br.x+144, br.y), font_dict['small_w'], (0,255), char_offset=Vector2(6,7), default_val=1, max_chars=3)
+	digitinput_rating  = DigitInput(Vector2(tl.x, tl.y),     Vector2(br.x+2, br.y),   font_dict['small_w'], (0,99),  char_offset=Vector2(6,7), default_val=DEFAULT_MAP_RATING, max_chars=2)
 	#
-	draggable_playerstart = DraggableObject(Vector2(DEFAULT_PLAYER_START.x*GRID_SIZE - GRID_SIZE/2, DEFAULT_PLAYER_START.y*GRID_SIZE - GRID_SIZE/2), PLAYER_RADIUS)
-	draggable_playerstart.add_image(player_img_fns[0])
+	draggable_playerstart = DraggableObject(DEFAULT_PLAYER_START, PLAYER_RADIUS, grid_snap=int(GRID_SIZE/2), pos_offset=Vector2(0,0), init_image_fn=player_img_fns[0])
 	#
 	#
 	#	TERRAIN MODE WIDGETS
@@ -580,11 +573,14 @@ def main(raw_args=None):
 	previous_editor_state = None
 
 	# inputs that can be held down across frames
-	shift_pressed = False
-	arrow_left    = False
-	arrow_up      = False
-	arrow_right   = False
-	arrow_down    = False
+	shift_pressed      = False
+	arrow_left         = False
+	arrow_up           = False
+	arrow_right        = False
+	arrow_down         = False
+	selection_box      = [None, None]
+	leftclick_is_down  = False
+	rightclick_is_down = False
 
 	# Main game loop --------------------------------------------- #
 	current_frame = 0
@@ -839,8 +835,8 @@ def main(raw_args=None):
 			# Terrain / Obstacles ------------------------------------ #
 			world_map.draw(screen, current_window_offset, draw_tiles=True,
 			                                              draw_obs=False,
-			                                              draw_walkable=True,
-			                                              draw_pathing=True)
+			                                              draw_walkable=False,
+			                                              draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
 			my_player.draw(screen, current_window_offset, draw_bounding_box=False)
@@ -916,8 +912,6 @@ def main(raw_args=None):
 			                              digitinput_rating.is_selected,
 			                              digitinput_mapsizex.is_selected,
 			                              digitinput_mapsizey.is_selected,
-			                              digitinput_playerx.is_selected,
-			                              digitinput_playery.is_selected,
 			                              digitinput_oblives.is_selected,
 			                              textinput_musicname.is_selected,
 			                              digitinput_expdelay.is_selected])
@@ -939,8 +933,8 @@ def main(raw_args=None):
 			#
 			# shrink area that mapobjects can be placed/dragged into so that they can't overlap editor elements at the bottom
 			#
-			mapobject_limits = Vector2(editor_tilemap.shape[0]*GRID_SIZE,
-			                           int(min(editor_tilemap.shape[1]*GRID_SIZE, 352 - current_window_offset.y)/GRID_SIZE)*GRID_SIZE)
+			mapobject_limits = [Vector2(1*GRID_SIZE,1*GRID_SIZE),
+			                    Vector2((editor_tilemap.shape[0] - 1)*GRID_SIZE, int(min(editor_tilemap.shape[1]*GRID_SIZE, 352-current_window_offset.y)/GRID_SIZE - 1)*GRID_SIZE)]
 			#
 			editor_tiledrawer.draw(screen, current_window_offset, editor_tilemap, highlight_walls)
 			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
@@ -986,9 +980,7 @@ def main(raw_args=None):
 				                     digitinput_lives,
 				                     digitinput_rating,
 				                     digitinput_mapsizex,
-				                     digitinput_mapsizey,
-				                     digitinput_playerx,
-				                     digitinput_playery]
+				                     digitinput_mapsizey]
 				menu_widgets_2    = [widget_propertiesmode_text]
 				#
 				for tw in textinput_widgets:
@@ -1001,13 +993,6 @@ def main(raw_args=None):
 					mw.draw(screen)
 				#
 				draggable_player_released = draggable_playerstart.update(mouse_pos_map, dragaction_activation, dragaction_released, mapobject_limits)
-				if not draggable_player_released and not draggable_playerstart.is_selected:
-					if not digitinput_playerx.is_selected and not digitinput_playery.is_selected:
-						draggable_playerstart.center_pos = Vector2(digitinput_playerx.get_value()*GRID_SIZE + int(GRID_SIZE/2),
-						                                           digitinput_playery.get_value()*GRID_SIZE + int(GRID_SIZE/2))
-				elif draggable_player_released:
-					digitinput_playerx.reset_with_new_str(str(int(draggable_playerstart.center_pos.x/GRID_SIZE)))
-					digitinput_playery.reset_with_new_str(str(int(draggable_playerstart.center_pos.y/GRID_SIZE)))
 				draggable_playerstart.draw(screen, current_window_offset)
 
 			#
@@ -1090,7 +1075,8 @@ def main(raw_args=None):
 							currentob_selection_menu.content.append(('Obstacle '+str(num_obs+1),))
 							currentob_selection_menu.index = num_obs
 							currentob_selection_menu.current_range = (max(num_obs+1-currentob_selection_menu.num_rows, 0), num_obs+1)
-							new_pos = (int(-current_window_offset.x/GRID_SIZE + 0.6)*GRID_SIZE, int(-current_window_offset.y/GRID_SIZE + 0.6)*GRID_SIZE)
+							new_pos = (int(-current_window_offset.x/GRID_SIZE + 0.6)*GRID_SIZE + mapobject_limits[0].x,
+							           int(-current_window_offset.y/GRID_SIZE + 0.6)*GRID_SIZE + mapobject_limits[0].y)
 							editor_obdata.append(get_blank_obdata(new_pos, font_dict, player_img_fns[1]))
 							adding_new_ob = True
 						#
@@ -1209,7 +1195,7 @@ def main(raw_args=None):
 					if left_clicking and mouse_in_editor_region and not any(locs_mouseover+special_locs_mouseover):
 						candidate_tl = Vector2(int(mouse_pos_map.x/GRID_SIZE)*GRID_SIZE, int(mouse_pos_map.y/GRID_SIZE)*GRID_SIZE)
 						candidate_br = Vector2(candidate_tl.x+16, candidate_tl.y+16)
-						if candidate_tl.x >= 0 and candidate_tl.y >= 0 and candidate_br.x <= mapobject_limits.x and candidate_br.y <= mapobject_limits.y:
+						if candidate_tl.x >= mapobject_limits[0].x and candidate_tl.y >= mapobject_limits[0].y and candidate_br.x <= mapobject_limits[1].x and candidate_br.y <= mapobject_limits[1].y:
 							editor_obdata[editor_currentobnum][3].append(ResizableBox(candidate_tl, candidate_br, str(len(editor_obdata[editor_currentobnum][3])+1), font_dict['small_w']))
 							# set to bottomleft-draggable
 							editor_obdata[editor_currentobnum][3][-1].is_mouseover   = True
@@ -1392,8 +1378,6 @@ def main(raw_args=None):
 							                   digitinput_rating,
 							                   digitinput_mapsizex,
 							                   digitinput_mapsizey,
-							                   digitinput_playerx,
-							                   digitinput_playery,
 							                   draggable_playerstart,
 							                   #
 							                   editor_tilemap,
@@ -1414,8 +1398,6 @@ def main(raw_args=None):
 			#
 			# adjust editor window offsets
 			#
-			digitinput_playerx.bounds = (0, digitinput_mapsizex.get_value() - 1)
-			digitinput_playery.bounds = (0, digitinput_mapsizey.get_value() - 1)
 			if not any_selectionmenu_selected and not any_textinput_selected:
 				current_window_offset = get_window_offset((arrow_left, arrow_up, arrow_right, arrow_down), current_window_offset, current_map_bounds, editor_resolution)
 
@@ -1443,7 +1425,8 @@ def main(raw_args=None):
 				changing_editor_state = True
 			#
 			if changing_editor_state:
-				# TODO: deselect all interactable objects
+				# do we need to deselect all selected objects?
+				# --- I think the mouse click on the mode button might do this already
 				pass
 			if previous_editor_state == GameState.EDITOR_SAVE:
 				previous_editor_state = current_gamestate
@@ -1457,14 +1440,44 @@ def main(raw_args=None):
 			if current_opacity >= 255:
 				current_gamestate = next_gamestate
 				#
-				if current_gamestate in [GameState.MAP_SELECT, GameState.MAP_SELECT_E]:
+				if current_gamestate == GameState.START_MENU:
+					current_map_bounds    = DEFAULT_MAP_DIM*GRID_SIZE
+					current_window_offset = Vector2(0, 0)
+					editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
+					editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
+					editor_prevtilemapdim = editor_tilemap.shape
+					editor_tiledrawer     = TileMap(tile_fns)
+					editor_obdata         = []
+					editor_currentobnum   = None
+					editor_currentexpnum  = None
+					highlight_walls       = False
+					#
+					textinput_mapname.reset_with_new_str('')
+					textinput_author.reset_with_new_str('')
+					textinput_description.reset_with_new_str('')
+					digitinput_lives.reset_with_new_str(str(DEFAULT_MAP_LIFECOUNT))
+					digitinput_rating.reset_with_new_str(str(DEFAULT_MAP_RATING))
+					digitinput_mapsizex.reset_with_new_str(str(int(DEFAULT_MAP_DIM.x)))
+					digitinput_mapsizey.reset_with_new_str(str(int(DEFAULT_MAP_DIM.y)))
+					draggable_playerstart.center_pos = DEFAULT_PLAYER_START
+					#
+					terraindim_selection_menu.index = 0
+					terrain_selection_menu.index    = 0
+					#
+					currentob_selection_menu.content       = []
+					currentob_selection_menu.index         = 0
+					currentob_selection_menu.current_range = (0,0)
+					#
+
+				#
+				elif current_gamestate in [GameState.MAP_SELECT, GameState.MAP_SELECT_E]:
 					all_map_names = [n for n in os.listdir(MAP_DIR) if n[-5:] == '.json']
 					all_map_files = get_file_paths(MAP_DIR, all_map_names)
 					for i in range(len(all_map_names)):
 						all_map_files[i] = (all_map_names[i][:-5], all_map_files[i])
 					map_selection_menu = MapMenu(MAPSELECT_MENU_POS, all_map_files, font_dict['small_w'], num_rows=15, row_height=16, col_width=248, sort_field=0)
 				#
-				if current_gamestate == GameState.BOUNDING:
+				elif current_gamestate == GameState.BOUNDING:
 					if map_fn_to_load != None:
 						#
 						# load map json and set up world objects
@@ -1476,6 +1489,9 @@ def main(raw_args=None):
 						map_fn_to_load = None
 				#
 				elif current_gamestate == GameState.EDITOR_PROPERTIES:
+					#
+					# load map data into the editor
+					#
 					if map_fn_to_load != None:
 						all_map_objects = (textinput_mapname,
 						                   textinput_author,
@@ -1484,8 +1500,6 @@ def main(raw_args=None):
 						                   digitinput_rating,
 						                   digitinput_mapsizex,
 						                   digitinput_mapsizey,
-						                   digitinput_playerx,
-						                   digitinput_playery,
 						                   draggable_playerstart)
 						(editor_tilemap, editor_obdata) = read_map_data_from_json(map_fn_to_load, all_map_objects, font_dict, player_img_fns[1])
 						#

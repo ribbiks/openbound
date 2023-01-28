@@ -39,8 +39,8 @@ class DraggableObject:
 		if self.is_selected:
 			snap_x = int((mousepos.x - self.pos_offset.x)/self.grid_snap + 0.5) * self.grid_snap
 			snap_y = int((mousepos.y - self.pos_offset.y)/self.grid_snap + 0.5) * self.grid_snap
-			snap_x = value_clamp(snap_x, self.radius, limits.x - self.radius - self.pos_offset.x)
-			snap_y = value_clamp(snap_y, self.radius, limits.y - self.radius - self.pos_offset.y)
+			snap_x = value_clamp(snap_x, limits[0].x + self.radius - self.pos_offset.x, limits[1].x - self.radius - self.pos_offset.x)
+			snap_y = value_clamp(snap_y, limits[0].y + self.radius - self.pos_offset.y, limits[1].y - self.radius - self.pos_offset.y)
 			self.center_pos = Vector2(snap_x, snap_y) + self.pos_offset
 		return released
 

@@ -76,25 +76,25 @@ class ResizableBox:
 			#
 			if self.drag_mode[0]:
 				if self.br.x - snap_x >= GRID_SIZE:
-					self.tl = Vector2(max(snap_x,0), self.tl.y)
+					self.tl = Vector2(max(snap_x,limits[0].x), self.tl.y)
 			#
 			# drag top
 			#
 			if self.drag_mode[1]:
 				if self.br.y - snap_y >= GRID_SIZE:
-					self.tl = Vector2(self.tl.x, max(snap_y,0))
+					self.tl = Vector2(self.tl.x, max(snap_y,limits[0].y))
 			#
 			# drag right
 			#
 			if self.drag_mode[2]:
 				if snap_x - self.tl.x >= GRID_SIZE:
-					self.br = Vector2(min(snap_x,limits.x), self.br.y)
+					self.br = Vector2(min(snap_x,limits[1].x), self.br.y)
 			#
 			# drag bottom
 			#
 			if self.drag_mode[3]:
 				if snap_y - self.tl.y >= GRID_SIZE:
-					self.br = Vector2(self.br.x, min(snap_y,limits.y))
+					self.br = Vector2(self.br.x, min(snap_y,limits[1].y))
 			#
 			# drag entire box
 			#
@@ -103,11 +103,11 @@ class ResizableBox:
 				new_tl = Vector2(int(new_tl.x/GRID_SIZE + 0.5) * GRID_SIZE, int(new_tl.y/GRID_SIZE + 0.5) * GRID_SIZE)
 				dbox   = self.br - self.tl
 				# snap against limits
-				new_tl = Vector2(min(new_tl.x, limits.x-dbox.x), min(new_tl.y, limits.y-dbox.y))
-				new_tl = Vector2(value_clamp(new_tl.x, 0, limits.x-dbox.x), value_clamp(new_tl.y, 0, limits.y-dbox.y))
+				new_tl = Vector2(min(new_tl.x, limits[1].x-dbox.x), min(new_tl.y, limits[1].y-dbox.y))
+				new_tl = Vector2(value_clamp(new_tl.x, limits[0].x, limits[1].x-dbox.x), value_clamp(new_tl.y, limits[0].y, limits[1].y-dbox.y))
 				new_br = new_tl + dbox
 				dtl    = new_tl - self.tl
-				if new_tl.x >= 0 and new_tl.y >= 0 and new_br.x <= limits.x and new_br.y <= limits.y:
+				if new_tl.x >= limits[0].x and new_tl.y >= limits[0].y and new_br.x <= limits[1].x and new_br.y <= limits[1].y:
 					self.tl = Vector2(new_tl.x, new_tl.y)
 					self.br = Vector2(new_br.x, new_br.y)
 					self.clickdown_pos += dtl
