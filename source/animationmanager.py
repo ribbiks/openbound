@@ -14,8 +14,11 @@ class AnimationManager:
 		self.all_animations[img_name] = [pygame.image.load(n).convert_alpha() for n in img_fn_sequence]
 		self.img_offsets[img_name]    = [Vector2(int(n.get_width()/2), int(n.get_height()/2)) for n in self.all_animations[img_name]]
 
-	def start_new_animation(self, img_name, position, centered=True):
-		self.active_animations.append([0, img_name, position, centered])
+	def start_new_animation(self, img_name, position, centered=True, prepend=False):
+		if prepend:
+			self.active_animations.insert(0, [0, img_name, position, centered])
+		else:
+			self.active_animations.append([0, img_name, position, centered])
 
 	def draw(self, screen, offset):
 		for i,v in enumerate(self.active_animations):

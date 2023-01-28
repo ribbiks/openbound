@@ -68,6 +68,19 @@ def main(raw_args=None):
 	#
 	cursor_img_fns = get_file_paths(GFX_DIR, ['cursor.png', 'cursor_shift.png'])
 	player_img_fns = get_file_paths(GFX_DIR, ['sq16.png', 'sq16_gray.png', 'zergling_sprites.png'])
+	playerdeath_fg = get_file_paths(GFX_DIR, ['zerglingdeath0001.png', 'zerglingdeath0001.png',
+	                                          'zerglingdeath0002.png', 'zerglingdeath0002.png',
+	                                          'zerglingdeath0003.png', 'zerglingdeath0003.png',
+	                                          'zerglingdeath0004.png', 'zerglingdeath0004.png',
+	                                          'zerglingdeath0005.png', 'zerglingdeath0005.png',
+	                                          'zerglingdeath0006.png', 'zerglingdeath0006.png',
+	                                          'zerglingdeath0007.png', 'zerglingdeath0007.png'])
+	playerdeath_bg = get_file_paths(GFX_DIR, ['zerglingdebris0000.png']*14 +
+	                                         ['zerglingdebris0001.png']*50 +
+	                                         ['zerglingdebris0002.png']*50 +
+	                                         ['zerglingdebris0003.png']*50 +
+	                                         ['zerglingdebris0004.png']*50 +
+	                                         ['zerglingdebris0005.png']*50)
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
 	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png',
 	                                          'ovy1.png', 'ovy1.png',
@@ -131,10 +144,14 @@ def main(raw_args=None):
 	             'mapselect2': Font(pixel_font_fns[1], Color.PAL_BLUE_3, scalar=4)}
 
 	# load animation gfx
+	my_animations_background = AnimationManager()
+	my_animations_background.add_animation_cycle(playerdeath_bg, 'playerdebris')
+	#
 	my_animations = AnimationManager()
 	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
 	my_animations.add_animation_cycle(tele_icons_fns, 'tele_icons')
+	my_animations.add_animation_cycle(playerdeath_fg, 'playerdeath')
 	#
 	explosion_imgs = {'overlord'         : my_animations.all_animations['overlord'][0],
 	                  'scourge'          : my_animations.all_animations['scourge'][0],
@@ -830,8 +847,10 @@ def main(raw_args=None):
 				if ob_kill:
 					player_died = my_player.check_kill_boxes(ob_kill)
 					if player_died:
-						my_player.revive_at_pos(ob.revive_coords)
 						my_audio.play_sound('player_death', volume=current_volume)
+						my_animations.start_new_animation('playerdeath', my_player.position + Vector2(-30,-30), centered=False, prepend=True)
+						my_animations_background.start_new_animation('playerdebris', my_player.position + Vector2(-30,-30), centered=False, prepend=True)
+						my_player.revive_at_pos(ob.revive_coords)
 				####if current_frame == 300:
 				####	my_player.add_lives(10, ob.revive_coords)
 
@@ -842,6 +861,7 @@ def main(raw_args=None):
 			                                              draw_pathing=False)
 
 			# Foreground objects ------------------------------------- #
+			my_animations_background.draw(screen, current_window_offset)
 			my_player.draw(screen, current_window_offset, draw_bounding_box=False)
 			my_animations.draw(screen, current_window_offset)
 
