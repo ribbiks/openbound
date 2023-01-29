@@ -114,7 +114,7 @@ class Obstacle:
 						kill_out.append([n for n in event[1:]])
 					elif event[0] == 'tele':
 						tele_out.append([n for n in event[1:]])
-			self.event_index = (self.event_index + 1) % len(self.events)
+			self.event_index = (self.event_index + 1) % (len(self.events) - 1)	# skip the empty event at the end
 		snd_out = list(snd_out.keys())
 		return (gfx_out, snd_out, kill_out, tele_out)
 

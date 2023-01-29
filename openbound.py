@@ -117,15 +117,22 @@ def main(raw_args=None):
 	#
 	# sc player color translations
 	#
-	RED_REMAP    = []
-	BLUE_REMAP   = []
-	TEAL_REMAP   = []
-	PURPLE_REMAP = []
-	ORANGE_REMAP = []
-	BROWN_REMAP  = []
+	RED_REMAP    = [(247, 15, 15), (191, 23, 23), (191, 23, 23), (162, 15, 15),
+	                (130,  0,  0), (107,  0,  0), ( 85,  0,  0), ( 38,  0,  0)]
+	BLUE_REMAP   = [( 31,107,219), ( 23, 85,178), ( 23, 85,178), ( 44, 85,155),
+	                ( 15, 61,134), (  0, 23,115), (  0, 38, 85), (  0,  0, 50)]
+	TEAL_REMAP   = [( 76,201,175), ( 61,172,145), ( 61,172,145), ( 61,172,145),
+	                ( 38,119, 94), ( 38,119, 94), ( 38,119, 94), (  0, 71,  0)]
+	PURPLE_REMAP = [(165, 98,182), (165, 98,182), (165, 98,182), (137, 81,152),
+	                (107, 56,115), (107, 56,115), (107, 56,115), ( 90, 38, 61)]
+	ORANGE_REMAP = [(250,169, 44), (239,152, 66), (207,137, 66), (185,119, 56),
+	                (155, 98, 50), (126, 76, 44), ( 85, 61, 31), ( 56, 38, 23)]
+	BROWN_REMAP  = [(145, 81, 44), (126, 76, 44), (126, 76, 44), (102, 85, 23),
+	                (102, 85, 23), ( 85, 61, 31), ( 85, 38, 23), ( 56, 38, 23)]
 	WHITE_REMAP  = [(219,233,222), (213,210,207), (197,197,197), (178,175,169),
 	                (162,148,148), (122,122,137), (102,102,102), ( 71, 71, 81)]
-	YELLOW_REMAP = []
+	YELLOW_REMAP = [(253,253, 90), (230,230, 94), (207,204, 85), (182,172, 98),
+	                (145,134, 61), (126,119, 44), (102, 85, 23), ( 56, 38, 23)]
 	#
 	SC_PAL9 = (211,0,214,255)	# used for transparent pixels in explosion sprites ripped from sc
 
@@ -1492,6 +1499,12 @@ def main(raw_args=None):
 				current_gamestate = next_gamestate
 				#
 				if current_gamestate == GameState.START_MENU:
+					#
+					# reset everything
+					#
+					my_animations.active_animations = []
+					my_animations_background.active_animations = []
+					#
 					current_map_bounds    = DEFAULT_MAP_DIM*GRID_SIZE
 					current_window_offset = Vector2(0, 0)
 					editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
