@@ -82,18 +82,22 @@ def main(raw_args=None):
 	                                         ['zerglingdebris0004.png']*50 +
 	                                         ['zerglingdebris0005.png']*50)
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
-	expovy_img_fns = get_file_paths(GFX_DIR, ['ovy0.png', 'ovy0.png',
-	                                          'ovy1.png', 'ovy1.png',
-	                                          'ovy2.png', 'ovy2.png',
-	                                          'ovy3.png', 'ovy3.png',
-	                                          'ovy4.png', 'ovy4.png',
-	                                          'ovy5.png', 'ovy5.png'])
-	expscr_img_fns = get_file_paths(GFX_DIR, ['scourge0.png', 'scourge0.png',
-	                                          'scourge1.png', 'scourge1.png',
-	                                          'scourge2.png', 'scourge2.png',
-	                                          'scourge3.png', 'scourge3.png',
-	                                          'scourge4.png', 'scourge4.png',
-	                                          'scourge5.png', 'scourge5.png'])
+	expovy_img_fns = get_file_paths(GFX_DIR, ['zairdthl0000.png', 'zairdthl0000.png',
+	                                          'zairdthl0001.png', 'zairdthl0001.png',
+	                                          'zairdthl0002.png', 'zairdthl0002.png',
+	                                          'zairdthl0003.png', 'zairdthl0003.png',
+	                                          'zairdthl0004.png', 'zairdthl0004.png',
+	                                          'zairdthl0005.png', 'zairdthl0005.png',
+	                                          'zairdthl0006.png', 'zairdthl0006.png',
+	                                          'zairdthl0007.png', 'zairdthl0007.png'])
+	expscr_img_fns = get_file_paths(GFX_DIR, ['zairdths0000.png', 'zairdths0000.png',
+	                                          'zairdths0001.png', 'zairdths0001.png',
+	                                          'zairdths0002.png', 'zairdths0002.png',
+	                                          'zairdths0003.png', 'zairdths0003.png',
+	                                          'zairdths0004.png', 'zairdths0004.png',
+	                                          'zairdths0005.png', 'zairdths0005.png',
+	                                          'zairdths0006.png', 'zairdths0006.png',
+	                                          'zairdths0007.png', 'zairdths0007.png'])
 	tele_icons_fns = get_file_paths(GFX_DIR, ['tele_origin.png', 'tele_dest.png'])
 	#
 	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
@@ -110,6 +114,20 @@ def main(raw_args=None):
 	map_width      = None
 	map_height     = None
 	my_player      = None
+	#
+	# sc player color translations
+	#
+	RED_REMAP    = []
+	BLUE_REMAP   = []
+	TEAL_REMAP   = []
+	PURPLE_REMAP = []
+	ORANGE_REMAP = []
+	BROWN_REMAP  = []
+	WHITE_REMAP  = [(219,233,222), (213,210,207), (197,197,197), (178,175,169),
+	                (162,148,148), (122,122,137), (102,102,102), ( 71, 71, 81)]
+	YELLOW_REMAP = []
+	#
+	SC_PAL9 = (211,0,214,255)	# used for transparent pixels in explosion sprites ripped from sc
 
 	#
 	# initialize pygame
@@ -148,8 +166,8 @@ def main(raw_args=None):
 	my_animations_background.add_animation_cycle(playerdeath_bg, 'playerdebris')
 	#
 	my_animations = AnimationManager()
-	my_animations.add_animation_cycle(expovy_img_fns, 'overlord')
-	my_animations.add_animation_cycle(expscr_img_fns, 'scourge')
+	my_animations.add_animation_cycle(expovy_img_fns, 'overlord', colorkey=SC_PAL9)
+	my_animations.add_animation_cycle(expscr_img_fns, 'scourge',  colorkey=SC_PAL9)
 	my_animations.add_animation_cycle(tele_icons_fns, 'tele_icons')
 	my_animations.add_animation_cycle(playerdeath_fg, 'playerdeath')
 	#
@@ -1517,7 +1535,7 @@ def main(raw_args=None):
 						#
 						world_map = WorldMap(map_fn_to_load, tile_fns, font_dict)
 						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
-						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0], player_img_fns[2])
+						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0], player_img_fns[2], swap_colors=WHITE_REMAP)
 						my_player.num_lives = world_map.init_lives
 						map_fn_to_load = None
 				#

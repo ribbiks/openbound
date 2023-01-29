@@ -63,11 +63,14 @@ rotation_ind_to_spritesheet_column = { 0:(4,False),  1:(3,False),  2:(2,False), 
 def get_sprite_column(angle):
 	return rotation_ind_to_spritesheet_column[(bisect.bisect(SPRITE_ANGLE_IND_BOUNDS,angle)-1)%NUM_ROTATIONS]
 
+SWAP_COLORS = [(255,0,255,255), (222,0,222,255), (189,0,189,255), (156,0,156,255),
+               (124,0,124,255), ( 91,0, 91,255), ( 58,0, 58,255), ( 25,0, 25,255)]
+
 #
 #
 #
 class Mauzling:
-	def __init__(self, pos, angle, image_filename, spritesheet_filename):
+	def __init__(self, pos, angle, image_filename, spritesheet_filename, swap_colors=None):
 		self.position    = pos
 		self.angle       = angle_clamp(angle)
 		self.radius      = PLAYER_RADIUS
@@ -82,6 +85,17 @@ class Mauzling:
 		self.num_lives   = 0
 		#
 		base_img = pygame.image.load(spritesheet_filename).convert_alpha()
+		# recolor
+		if swap_colors != None:
+			swap_dict = {}
+			for i in range(len(SWAP_COLORS)):
+				swap_dict[SWAP_COLORS[i]] = (swap_colors[i][0], swap_colors[i][1], swap_colors[i][2], 255)
+			for x in range(base_img.get_width()):
+				for y in range(base_img.get_height()):
+					my_col = tuple(base_img.get_at((x,y)))
+					if my_col in swap_dict:
+						base_img.set_at((x, y), pygame.Color(swap_dict[my_col]))
+		#
 		self.separated_sprites = []
 		self.separated_sprites_flipped = []
 		for x in range(SPRITE_DIMS[0]):

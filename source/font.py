@@ -23,8 +23,8 @@ class Font():
 		# recolor
 		for x in range(font_img.get_width()):
 			for y in range(font_img.get_height()):
-				if font_img.get_at((x,y)) == TEXT_CHARACTER_COLOR:
-					font_img.set_at((x, y), pygame.Color(color[0], color[1], color[2], 255))
+				if tuple(font_img.get_at((x,y))) == TEXT_CHARACTER_COLOR:
+					font_img.set_at((x,y), pygame.Color(color[0], color[1], color[2], 255))
 		# separate characters
 		for x in range(font_img.get_width()):
 			if font_img.get_at((x,0)) == COLUMN_DELIMITER_COLOR:
