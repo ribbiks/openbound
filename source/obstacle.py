@@ -56,6 +56,15 @@ class Obstacle:
 			self.events[-1].extend(copy.deepcopy(new_events))
 		for i in range(delay):
 			self.events.append([])
+
+	#
+	# call this once after adding all the ob events
+	#
+	def bake(self):
+		if len(self.events) > 1:
+			self.events[0].extend(copy.deepcopy(self.events[-1]))
+			del self.events[-1]
+
 	#
 	# keeping this around so I have a record of functions to eventually implement properly
 	#
@@ -117,10 +126,7 @@ class Obstacle:
 						kill_out.append([n for n in event[1:]])
 					elif event[0] == 'tele':
 						tele_out.append([n for n in event[1:]])
-			num_events = len(self.events)
-			if self.events[-1] == []:	# skip the empty event at the end
-				num_events -= 1
-			self.event_index = (self.event_index + 1) % num_events
+			self.event_index = (self.event_index + 1) % len(self.events)
 		snd_out = list(snd_out.keys())
 		return (gfx_out, snd_out, kill_out, tele_out)
 

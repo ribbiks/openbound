@@ -69,6 +69,7 @@ class WorldMap:
 			for k2 in event_keys:
 				my_event_dat = json_dat[k][k2]
 				self.obstacles[my_ob_key].add_event_explode_locs(my_event_dat[0], my_event_dat[1], my_event_dat[2])
+			self.obstacles[my_ob_key].bake()
 
 		#
 		# lets sanitize the map: make sure it's surrounded by unmovable terrain

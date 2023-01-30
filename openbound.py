@@ -82,22 +82,29 @@ def main(raw_args=None):
 	                                         ['zerglingdebris0004.png']*50 +
 	                                         ['zerglingdebris0005.png']*50)
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
-	expovy_img_fns = get_file_paths(GFX_DIR, ['zairdthl0000.png', 'zairdthl0000.png',
-	                                          'zairdthl0001.png', 'zairdthl0001.png',
-	                                          'zairdthl0002.png', 'zairdthl0002.png',
-	                                          'zairdthl0003.png', 'zairdthl0003.png',
-	                                          'zairdthl0004.png', 'zairdthl0004.png',
-	                                          'zairdthl0005.png', 'zairdthl0005.png',
-	                                          'zairdthl0006.png', 'zairdthl0006.png',
-	                                          'zairdthl0007.png', 'zairdthl0007.png'])
-	expscr_img_fns = get_file_paths(GFX_DIR, ['zairdths0000.png', 'zairdths0000.png',
-	                                          'zairdths0001.png', 'zairdths0001.png',
-	                                          'zairdths0002.png', 'zairdths0002.png',
-	                                          'zairdths0003.png', 'zairdths0003.png',
-	                                          'zairdths0004.png', 'zairdths0004.png',
-	                                          'zairdths0005.png', 'zairdths0005.png',
-	                                          'zairdths0006.png', 'zairdths0006.png',
-	                                          'zairdths0007.png', 'zairdths0007.png'])
+	psiwal_img_fns = get_file_paths(GFX_DIR, ['psiemit0000.bmp', 'psiemit0000.bmp',
+	                                          'psiemit0001.bmp', 'psiemit0001.bmp',
+	                                          'psiemit0002.bmp', 'psiemit0002.bmp',
+	                                          'psiemit0003.bmp', 'psiemit0003.bmp',
+	                                          'psiemit0004.bmp', 'psiemit0004.bmp',
+	                                          'psiemit0005.bmp', 'psiemit0005.bmp'])
+	expovy_img_fns = get_file_paths(GFX_DIR, ['zairdthl0000.bmp', 'zairdthl0000.bmp',
+	                                          'zairdthl0001.bmp', 'zairdthl0001.bmp',
+	                                          'zairdthl0002.bmp', 'zairdthl0002.bmp',
+	                                          'zairdthl0003.bmp', 'zairdthl0003.bmp',
+	                                          'zairdthl0004.bmp', 'zairdthl0004.bmp',
+	                                          'zairdthl0005.bmp', 'zairdthl0005.bmp',
+	                                          'zairdthl0006.bmp', 'zairdthl0006.bmp',
+	                                          'zairdthl0007.bmp', 'zairdthl0007.bmp'])
+	expscr_img_fns = get_file_paths(GFX_DIR, ['zairdths0000.bmp', 'zairdths0000.bmp',
+	                                          'zairdths0001.bmp', 'zairdths0001.bmp',
+	                                          'zairdths0002.bmp', 'zairdths0002.bmp',
+	                                          'zairdths0003.bmp', 'zairdths0003.bmp',
+	                                          'zairdths0004.bmp', 'zairdths0004.bmp',
+	                                          'zairdths0005.bmp', 'zairdths0005.bmp',
+	                                          'zairdths0006.bmp', 'zairdths0006.bmp',
+	                                          'zairdths0007.bmp', 'zairdths0007.bmp'])
+	wall_icons_fns = get_file_paths(GFX_DIR, ['nowall.png'])
 	tele_icons_fns = get_file_paths(GFX_DIR, ['tele_origin.png', 'tele_dest.png'])
 	#
 	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
@@ -134,7 +141,7 @@ def main(raw_args=None):
 	YELLOW_REMAP = [(253,253, 90), (230,230, 94), (207,204, 85), (182,172, 98),
 	                (145,134, 61), (126,119, 44), (102, 85, 23), ( 56, 38, 23)]
 	#
-	SC_PAL9 = (211,0,214,255)	# used for transparent pixels in explosion sprites ripped from sc
+	SC_PAL254 = (35,35,255,255)	# used for transparent pixels in explosion sprites ripped from sc
 
 	#
 	# initialize pygame
@@ -173,13 +180,19 @@ def main(raw_args=None):
 	my_animations_background.add_animation_cycle(playerdeath_bg, 'playerdebris')
 	#
 	my_animations = AnimationManager()
-	my_animations.add_animation_cycle(expovy_img_fns, 'overlord', colorkey=SC_PAL9)
-	my_animations.add_animation_cycle(expscr_img_fns, 'scourge',  colorkey=SC_PAL9)
+	my_animations.add_animation_cycle(expovy_img_fns, 'overlord', colorkey=SC_PAL254)
+	my_animations.add_animation_cycle(expscr_img_fns, 'scourge',  colorkey=SC_PAL254)
+	my_animations.add_animation_cycle(wall_icons_fns, 'nowall_icon')
 	my_animations.add_animation_cycle(tele_icons_fns, 'tele_icons')
 	my_animations.add_animation_cycle(playerdeath_fg, 'playerdeath')
+	my_animations.add_animation_cycle(psiwal_img_fns, 'psi', colorkey=SC_PAL254, swap_colors=WHITE_REMAP)
+	#
+	my_animations.start_looping_animation('psi', Vector2(128,128), 'test')
 	#
 	explosion_imgs = {'overlord'         : my_animations.all_animations['overlord'][0],
 	                  'scourge'          : my_animations.all_animations['scourge'][0],
+	                  'psi_emitter'      : my_animations.all_animations['psi'][0],
+	                  'remove_wall'      : my_animations.all_animations['nowall_icon'][0],
 	                  'tele_origin'      : my_animations.all_animations['tele_icons'][0],
 	                  'tele_destination' : my_animations.all_animations['tele_icons'][1]}
 
@@ -467,12 +480,13 @@ def main(raw_args=None):
 	widget_explosionsmode_text = UIWidget()
 	widget_explosionsmode_text.add_rect(Vector2(tl.x, tl.y+20), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
 	widget_explosionsmode_text.add_text(Vector2(tl.x+2, tl.y), 'Event type:', 't1', font_dict['large_w'])
-	event_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), ['explosion', 'add wall', 'remove wall', 'teleport'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	event_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+24), ['explosion', 'wall', 'teleport'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
 	widget_explosionsmode_submenu_explosion = UIWidget()
 	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y+20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
 	widget_explosionsmode_submenu_explosion.add_text(Vector2(tl.x+98, tl.y), 'Unit:', 't1', font_dict['large_w'])
-	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'],             font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	unit_selection_menu_wall      = UnitMenu(Vector2(tl.x+100, tl.y+24), ['psi_emitter', 'remove_wall'],      font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	unit_selection_menu_teleport  = UnitMenu(Vector2(tl.x+100, tl.y+24), ['tele_origin', 'tele_destination'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
 	tl = Vector2(352, 400)
@@ -1187,7 +1201,6 @@ def main(raw_args=None):
 					obinfo_life_menu.is_selected = False
 					digitinput_oblives.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['life_amount']))
 					textinput_musicname.reset_with_new_str(str(editor_obdata[editor_currentobnum][4]['music']))
-					print(editor_currentexpnum, len(editor_obdata[editor_currentobnum][5]))
 					digitinput_expdelay.reset_with_new_str(str(editor_obdata[editor_currentobnum][5][editor_currentexpnum]['delay']))
 				#
 				if editor_currentobnum != None:
@@ -1369,13 +1382,17 @@ def main(raw_args=None):
 				event_selection_menu.draw(screen)
 				event_submode = event_selection_menu.get_selected_content()
 				selected_exploding_unit = None
-				if event_submode == 'explosion' or event_submode == 'teleport':
+				if event_submode in ['explosion', 'wall', 'teleport']:
 					widget_explosionsmode_submenu_explosion.update(mouse_pos_screen, left_clicking)
 					widget_explosionsmode_submenu_explosion.draw(screen)
 					if event_submode == 'explosion':
 						unit_selection_menu_explosion.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 						unit_selection_menu_explosion.draw(screen)
 						selected_exploding_unit = unit_selection_menu_explosion.get_selected_content()
+					elif event_submode == 'wall':
+						unit_selection_menu_wall.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+						unit_selection_menu_wall.draw(screen)
+						selected_exploding_unit = unit_selection_menu_wall.get_selected_content()
 					elif event_submode == 'teleport':
 						unit_selection_menu_teleport.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 						unit_selection_menu_teleport.draw(screen)

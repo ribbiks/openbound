@@ -8,7 +8,7 @@ from pygame.math import Vector2
 from source.geometry    import angle_clamp, boxes_overlap, point_in_box, SMALL_NUMBER
 from source.misc_gfx    import clip, Color
 from source.pathfinding import pathfind
-from source.globals     import GRID_SIZE, PLAYER_RADIUS
+from source.globals     import GRID_SIZE, PLAYER_RADIUS, SWAP_COLORS
 
 #
 # basic stats
@@ -62,9 +62,6 @@ rotation_ind_to_spritesheet_column = { 0:(4,False),  1:(3,False),  2:(2,False), 
                                       12:(8,False), 13:(7,False), 14:(6,False), 15:(5,False)}
 def get_sprite_column(angle):
 	return rotation_ind_to_spritesheet_column[(bisect.bisect(SPRITE_ANGLE_IND_BOUNDS,angle)-1)%NUM_ROTATIONS]
-
-SWAP_COLORS = [(255,0,255,255), (222,0,222,255), (189,0,189,255), (156,0,156,255),
-               (124,0,124,255), ( 91,0, 91,255), ( 58,0, 58,255), ( 25,0, 25,255)]
 
 #
 #
