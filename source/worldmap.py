@@ -54,11 +54,13 @@ class WorldMap:
 			startbox   = json_dat[k]['startbox']
 			endbox     = json_dat[k]['endbox']
 			revive     = json_dat[k]['revive']
+			actions    = json_dat[k]['actions']
 			loc_keys   = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'loc_'])]
 			event_keys = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'exp_'])]
 			self.obstacles[my_ob_key] = Obstacle((Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
 			                                     (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
 			                                     Vector2(revive[0], revive[1]),
+			                                     actions,
 			                                     font_loc=font_dict['small'])
 			for k2 in loc_keys:
 				my_loc_key = k2[4:]

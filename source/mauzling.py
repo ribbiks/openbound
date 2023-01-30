@@ -140,11 +140,13 @@ class Mauzling:
 	#
 	#
 	#
-	def update_position(self, pos, angle):
-		self.position = pos
-		self.angle    = angle
-		self.bbox     = (Vector2(self.position.x - self.radius, self.position.y - self.radius),
-		                 Vector2(self.position.x + self.radius, self.position.y + self.radius))
+	def update_position(self, pos=None, angle=None):
+		if pos != None:
+			self.position = pos
+			self.bbox     = (Vector2(self.position.x - self.radius, self.position.y - self.radius),
+			                 Vector2(self.position.x + self.radius, self.position.y + self.radius))
+		if angle != None:
+			self.angle = angle
 	
 	#
 	#
@@ -202,11 +204,19 @@ class Mauzling:
 	#
 	#
 	#
-	def revive_at_pos(self, pos):
-		self.is_selected = False
+	def clear_orders_and_reset_state(self, deselect=True):
+		if deselect:
+			self.is_selected = False
 		self.iscript_ind = 0
 		self.inc_orders  = []
 		self.order_queue = deque([])
+		self.state = PlayerState.IDLE
+
+	#
+	#
+	#
+	def revive_at_pos(self, pos):
+		self.clear_orders_and_reset_state()
 		self.update_position(pos, 0)
 		if self.num_lives >= 1:
 			self.state = PlayerState.IDLE
@@ -217,16 +227,15 @@ class Mauzling:
 	#
 	#
 	#
-	def add_lives(self, new_lives, current_revive_pos):
+	def add_lives(self, new_lives, current_revive_pos, set_lives=False):
 		if new_lives > 0:
-			self.num_lives += new_lives
+			if set_lives:
+				self.num_lives = new_lives
+			else:
+				self.num_lives += new_lives
 			if self.state == PlayerState.DEAD:
-				self.is_selected = False
-				self.iscript_ind = 0
-				self.inc_orders  = []
-				self.order_queue = deque([])
+				self.clear_orders_and_reset_state()
 				self.update_position(current_revive_pos, 0)
-				self.state = PlayerState.IDLE
 				self.num_lives -= 1
 	
 	#

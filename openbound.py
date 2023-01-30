@@ -862,8 +862,22 @@ def main(raw_args=None):
 			# update obstacles
 			#
 			for obname, ob in world_map.obstacles.items():
-				ob.check_for_ob_start(my_player.position)
+				obstart_actions = ob.check_for_ob_start(my_player.position)
+				if obstart_actions != None:
+					for n in obstart_actions:
+						if n[0] == 'add_lives':
+							my_player.add_lives(n[1], ob.revive_coords)
+						elif n[0] == 'set_lives':
+							my_player.add_lives(n[1], ob.revive_coords, set_lives=True)
+						elif n[0] == 'move_player' and n[1] == 1:
+							my_player.update_position(ob.revive_coords)
+							my_player.clear_orders_and_reset_state(deselect=False)
+						elif n[0] == 'change_music' and n[1] != '':
+							my_audio.stop_music()
+							my_audio.play_music(n[1])
+				#
 				ob.check_for_ob_end(my_player.position)
+				#
 				(ob_gfx, ob_snd, ob_kill, ob_tele) = ob.tick()
 				for n in ob_gfx:
 					my_animations.start_new_animation(n[0], n[1])
@@ -876,8 +890,6 @@ def main(raw_args=None):
 						my_animations.start_new_animation('playerdeath', my_player.position + Vector2(-30,-30), centered=False, prepend=True)
 						my_animations_background.start_new_animation('playerdebris', my_player.position + Vector2(-30,-30), centered=False, prepend=True)
 						my_player.revive_at_pos(ob.revive_coords)
-				####if current_frame == 300:
-				####	my_player.add_lives(10, ob.revive_coords)
 
 			# Terrain / Obstacles ------------------------------------ #
 			world_map.draw(screen, current_window_offset, draw_tiles=True,
@@ -1550,6 +1562,7 @@ def main(raw_args=None):
 						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
 						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0], player_img_fns[2], swap_colors=WHITE_REMAP)
 						my_player.num_lives = world_map.init_lives
+						current_map_fn = map_fn_to_load
 						map_fn_to_load = None
 				#
 				elif current_gamestate == GameState.EDITOR_PROPERTIES:

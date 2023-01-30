@@ -9,10 +9,11 @@ from source.misc_gfx import Color, OB_REVIVE_RADIUS
 # all boxes are defined by a list of Vector2s: [topleft, bottomright]
 
 class Obstacle:
-	def __init__(self, startbox, endbox, revive, font_loc=None):
+	def __init__(self, startbox, endbox, revive, start_actions, font_loc=None):
 		self.start_box     = startbox
 		self.end_box       = endbox
 		self.revive_coords = revive
+		self.start_actions = sorted(start_actions)
 		self.locs          = {}
 		self.events        = [[]]
 		self.event_index   = 0
@@ -26,6 +27,8 @@ class Obstacle:
 				self.is_activated  = True
 				self.was_activated = True
 				self.event_index   = 0
+				return self.start_actions
+		return None
 
 	def check_for_ob_end(self, player_pos):
 		if self.is_activated:
@@ -114,7 +117,10 @@ class Obstacle:
 						kill_out.append([n for n in event[1:]])
 					elif event[0] == 'tele':
 						tele_out.append([n for n in event[1:]])
-			self.event_index = (self.event_index + 1) % (len(self.events) - 1)	# skip the empty event at the end
+			num_events = len(self.events)
+			if self.events[-1] == []:	# skip the empty event at the end
+				num_events -= 1
+			self.event_index = (self.event_index + 1) % num_events
 		snd_out = list(snd_out.keys())
 		return (gfx_out, snd_out, kill_out, tele_out)
 
