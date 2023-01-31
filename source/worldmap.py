@@ -68,7 +68,24 @@ class WorldMap:
 				self.obstacles[my_ob_key].add_location(my_loc_key, Vector2(my_loc_dat[0], my_loc_dat[1]), Vector2(my_loc_dat[2], my_loc_dat[3]))
 			for k2 in event_keys:
 				my_event_dat = json_dat[k][k2]
-				self.obstacles[my_ob_key].add_event_explode_locs(my_event_dat[0], my_event_dat[1], my_event_dat[2])
+				#
+				tele_origin_loc = None
+				tele_dest_loc   = None
+				for i,unitname in enumerate(my_event_dat[1]):
+					if unitname == 'tele_origin' and tele_origin_loc == None:
+						tele_origin_loc = my_event_dat[0][i]
+					if unitname == 'tele_destination' and tele_dest_loc == None:
+						tele_dest_loc = my_event_dat[0][i]
+				if tele_origin_loc != None and tele_dest_loc != None:
+					self.obstacles[my_ob_key].add_event_teleport(tele_origin_loc, tele_dest_loc)
+				#
+				loc_list  = []
+				unit_list = []
+				for i in range(len(my_event_dat[0])):
+					if my_event_dat[1][i] not in ['tele_origin', 'tele_destination']:
+						loc_list.append(my_event_dat[0][i])
+						unit_list.append(my_event_dat[1][i])
+				self.obstacles[my_ob_key].add_event_explode_locs(loc_list, unit_list, my_event_dat[2])
 			self.obstacles[my_ob_key].bake()
 
 		#

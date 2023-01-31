@@ -49,6 +49,17 @@ class Obstacle:
 			new_sounds[unit_list[i]] = True
 		self.update_events(new_events, new_sounds, delay)
 
+	def add_event_teleport(self, origin_loc, destination_loc):
+		new_events = []
+		new_sounds = {}
+		(tl1, br1) = self.locs[origin_loc]
+		(tl2, br2) = self.locs[destination_loc]
+		new_events.append(('gfx', 'hallucination', (tl1+br1)/2))
+		new_events.append(('gfx', 'hallucination', (tl2+br2)/2))
+		new_events.append(('tele', Vector2(tl1.x, tl1.y), Vector2(br1.x, br1.y), (tl2+br2)/2))
+		new_sounds['hallucination'] = True
+		self.update_events(new_events, new_sounds, 0)
+
 	def update_events(self, new_events, new_sounds, delay):
 		for k in new_sounds.keys():
 			new_events.append(('snd', k))

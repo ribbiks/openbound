@@ -37,40 +37,53 @@ class AnimationManager:
 		#
 		self.img_offsets[img_name] = [Vector2(int(n.get_width()/2), int(n.get_height()/2)) for n in self.all_animations[img_name]]
 
-	def start_new_animation(self, img_name, position, centered=True, prepend=False):
+	def start_new_animation(self, img_name, position, centered=True, alpha_layer=False, prepend=False):
 		if prepend:
-			self.active_animations.insert(0, [0, img_name, position, centered])
+			self.active_animations.insert(0, [0, img_name, position, centered, alpha_layer])
 		else:
-			self.active_animations.append([0, img_name, position, centered])
+			self.active_animations.append([0, img_name, position, centered, alpha_layer])
 
-	def start_looping_animation(self, img_name, position, img_key, centered=True):
-		self.looping_animations[img_name] = [0, img_name, position, centered]
+	def start_looping_animation(self, img_name, position, img_key, centered=True, alpha_layer=False):
+		self.looping_animations[img_name] = [0, img_name, position, centered, alpha_layer]
 
 	def remove_looping_animation(self, img_key):
 		if img_key in self.looping_animations:
 			del self.looping_animations
 
 	def draw(self, screen, offset):
-		#
 		for k,v in self.looping_animations.items():
 			my_img = self.all_animations[v[1]][v[0]]
 			my_pos = v[2]
 			is_centered = v[3]
+			is_alpha = v[4]
 			if is_centered:
 				centering_offset = self.img_offsets[v[1]][v[0]]
 			else:
 				centering_offset = Vector2(0,0)
-			screen.blit(my_img, my_pos - centering_offset + offset)
+			if is_alpha:
+				alpha_surface = pygame.Surface(my_img.get_size())
+				alpha_surface.set_alpha(128)
+				alpha_surface.blit(my_img, (0,0))
+				screen.blit(alpha_surface, my_pos - centering_offset + offset, special_flags=pygame.BLEND_ALPHA_SDL2)
+			else:
+				screen.blit(my_img, my_pos - centering_offset + offset)
 			self.looping_animations[k][0] = (self.looping_animations[k][0] + 1) % len(self.all_animations[v[1]])
 		#
 		for i,v in enumerate(self.active_animations):
 			my_img = self.all_animations[v[1]][v[0]]
 			my_pos = v[2]
 			is_centered = v[3]
+			is_alpha = v[4]
 			if is_centered:
 				centering_offset = self.img_offsets[v[1]][v[0]]
 			else:
 				centering_offset = Vector2(0,0)
-			screen.blit(my_img, my_pos - centering_offset + offset)
+			if is_alpha:
+				alpha_surface = pygame.Surface(my_img.get_size())
+				alpha_surface.set_alpha(128)
+				alpha_surface.blit(my_img, (0,0))
+				screen.blit(alpha_surface, my_pos - centering_offset + offset, special_flags=pygame.BLEND_ALPHA_SDL2)
+			else:
+				screen.blit(my_img, my_pos - centering_offset + offset)
 			self.active_animations[i][0] += 1
 		self.active_animations = [n for n in self.active_animations if n[0] < len(self.all_animations[n[1]])]

@@ -104,11 +104,25 @@ def main(raw_args=None):
 	                                          'zairdths0005.bmp', 'zairdths0005.bmp',
 	                                          'zairdths0006.bmp', 'zairdths0006.bmp',
 	                                          'zairdths0007.bmp', 'zairdths0007.bmp'])
+	tele_img_fns   = get_file_paths(GFX_DIR, ['ehamed0000.bmp', 'ehamed0000.bmp', 'ehamed0000.bmp',
+	                                          'ehamed0001.bmp', 'ehamed0001.bmp', 'ehamed0001.bmp',
+	                                          'ehamed0002.bmp', 'ehamed0002.bmp', 'ehamed0002.bmp',
+	                                          'ehamed0003.bmp', 'ehamed0003.bmp', 'ehamed0003.bmp',
+	                                          'ehamed0004.bmp', 'ehamed0004.bmp', 'ehamed0004.bmp',
+	                                          'ehamed0005.bmp', 'ehamed0005.bmp', 'ehamed0005.bmp',
+	                                          'ehamed0006.bmp', 'ehamed0006.bmp', 'ehamed0006.bmp',
+	                                          'ehamed0007.bmp', 'ehamed0007.bmp', 'ehamed0007.bmp',
+	                                          'ehamed0008.bmp', 'ehamed0008.bmp', 'ehamed0008.bmp',
+	                                          'ehamed0009.bmp', 'ehamed0009.bmp', 'ehamed0009.bmp',
+	                                          'ehamed0010.bmp', 'ehamed0010.bmp', 'ehamed0010.bmp',
+	                                          'ehamed0011.bmp', 'ehamed0011.bmp', 'ehamed0011.bmp',
+	                                          'ehamed0012.bmp', 'ehamed0012.bmp', 'ehamed0012.bmp'])
 	wall_icons_fns = get_file_paths(GFX_DIR, ['nowall.png'])
 	tele_icons_fns = get_file_paths(GFX_DIR, ['tele_origin.png', 'tele_dest.png'])
 	#
 	exp_sound_fns    = get_file_paths(SFX_DIR, ['zovdth00.wav', 'zavdth00.wav'])
 	player_sound_fns = get_file_paths(SFX_DIR, ['zzedth00.wav'])
+	tele_sound_fns   = get_file_paths(SFX_DIR, ['ptehal01.wav'])
 	#
 	pixel_font_fns = get_file_paths(FONT_DIR, ['small_font.png', 'large_font.png'])
 	#
@@ -175,6 +189,13 @@ def main(raw_args=None):
 	             'mapselect':  Font(pixel_font_fns[1], Color.PAL_BLUE_2, scalar=4),
 	             'mapselect2': Font(pixel_font_fns[1], Color.PAL_BLUE_3, scalar=4)}
 
+	# load sounds
+	my_audio = AudioManager()
+	my_audio.add_sound(exp_sound_fns[0], 'overlord')
+	my_audio.add_sound(exp_sound_fns[1], 'scourge')
+	my_audio.add_sound(player_sound_fns[0], 'player_death')
+	my_audio.add_sound(tele_sound_fns[0], 'hallucination')
+
 	# load animation gfx
 	my_animations_background = AnimationManager()
 	my_animations_background.add_animation_cycle(playerdeath_bg, 'playerdebris')
@@ -184,6 +205,7 @@ def main(raw_args=None):
 	my_animations.add_animation_cycle(expscr_img_fns, 'scourge',  colorkey=SC_PAL254)
 	my_animations.add_animation_cycle(wall_icons_fns, 'nowall_icon')
 	my_animations.add_animation_cycle(tele_icons_fns, 'tele_icons')
+	my_animations.add_animation_cycle(tele_img_fns,   'hallucination')
 	my_animations.add_animation_cycle(playerdeath_fg, 'playerdeath')
 	my_animations.add_animation_cycle(psiwal_img_fns, 'psi', colorkey=SC_PAL254, swap_colors=WHITE_REMAP)
 	#
@@ -616,12 +638,6 @@ def main(raw_args=None):
 	#
 	#
 
-	# load sounds
-	my_audio = AudioManager()
-	my_audio.add_sound(exp_sound_fns[0], 'overlord')
-	my_audio.add_sound(exp_sound_fns[1], 'scourge')
-	my_audio.add_sound(player_sound_fns[0], 'player_death')
-
 	# misc gamestate stuff
 	next_gamestate   = None
 	transition_alpha = deque([])
@@ -893,10 +909,16 @@ def main(raw_args=None):
 				ob.check_for_ob_end(my_player.position)
 				#
 				(ob_gfx, ob_snd, ob_kill, ob_tele) = ob.tick()
+				#
 				for n in ob_gfx:
-					my_animations.start_new_animation(n[0], n[1])
+					if n[0] == 'hallucination':
+						my_animations.start_new_animation(n[0], n[1]+Vector2(5,0), alpha_layer=True)
+					else:
+						my_animations.start_new_animation(n[0], n[1])
+				#
 				for n in ob_snd:
 					my_audio.play_sound(n, volume=current_volume)
+				#
 				if ob_kill:
 					player_died = my_player.check_kill_boxes(ob_kill)
 					if player_died:
@@ -904,6 +926,11 @@ def main(raw_args=None):
 						my_animations.start_new_animation('playerdeath', my_player.position + Vector2(-30,-30), centered=False, prepend=True)
 						my_animations_background.start_new_animation('playerdebris', my_player.position + Vector2(-30,-30), centered=False, prepend=True)
 						my_player.revive_at_pos(ob.revive_coords)
+				#
+				for n in ob_tele:
+					if point_in_box_excl(my_player.position, n[0], n[1]):
+						my_player.update_position(n[2])
+						my_player.clear_orders_and_reset_state(deselect=False)
 
 			# Terrain / Obstacles ------------------------------------ #
 			world_map.draw(screen, current_window_offset, draw_tiles=True,
