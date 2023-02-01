@@ -132,7 +132,9 @@ def write_map_data_to_json(out_fn, all_map_objects):
 				else: my_spaces = ''
 				f.write('        "loc_' + str(j+1) + '":' + my_spaces + get_box_str_from_tlbr(loc_box.tl, loc_box.br) + ',\n')
 			#
-			for j,exp_dat in enumerate(ob_data[5]):
+			ob_data_to_output = [ob_data[5][n] for n in range(len(ob_data[5])) if len(ob_data[5][n]['explode_locs'])]
+			#
+			for j,exp_dat in enumerate(ob_data_to_output):
 				name_len = len(str(j+1))
 				if name_len == 1: my_spaces = '    '
 				elif name_len == 2: my_spaces = '   '
@@ -144,7 +146,7 @@ def write_map_data_to_json(out_fn, all_map_objects):
 				f.write('[' + ','.join(['"'+str(n+1)+'"' for n in my_locs]) + '], ')
 				f.write('[' + ','.join(['"'+str(exp_dat['explode_locs'][n])+'"' for n in my_locs]) + '], ')
 				f.write(str(exp_dat['delay']))
-				if j == len(ob_data[5]) - 1:
+				if j == len(ob_data_to_output) - 1:
 					f.write(']\n')
 				else:
 					f.write('],\n')

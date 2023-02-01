@@ -19,7 +19,7 @@ from source.cursor           import Cursor
 from source.draggableobject  import DraggableObject
 from source.font             import Font
 from source.geometry         import get_window_offset, point_in_box_excl
-from source.globals          import GRID_SIZE, PLAYER_RADIUS
+from source.globals          import GRID_SIZE, PLAYER_RADIUS, WALL_UNITS
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_map_bounds, draw_selection_box, FADE_SEQUENCE
 from source.obstacle         import Obstacle
@@ -88,6 +88,7 @@ def main(raw_args=None):
 	                                          'psiemit0003.bmp', 'psiemit0003.bmp',
 	                                          'psiemit0004.bmp', 'psiemit0004.bmp',
 	                                          'psiemit0005.bmp', 'psiemit0005.bmp'])
+	crystl_img_fns = get_file_paths(GFX_DIR, ['khchunk0000.bmp'])
 	expovy_img_fns = get_file_paths(GFX_DIR, ['zairdthl0000.bmp', 'zairdthl0000.bmp',
 	                                          'zairdthl0001.bmp', 'zairdthl0001.bmp',
 	                                          'zairdthl0002.bmp', 'zairdthl0002.bmp',
@@ -207,13 +208,13 @@ def main(raw_args=None):
 	my_animations.add_animation_cycle(tele_icons_fns, 'tele_icons')
 	my_animations.add_animation_cycle(tele_img_fns,   'hallucination')
 	my_animations.add_animation_cycle(playerdeath_fg, 'playerdeath')
-	my_animations.add_animation_cycle(psiwal_img_fns, 'psi', colorkey=SC_PAL254, swap_colors=WHITE_REMAP)
-	#
-	my_animations.start_looping_animation('psi', Vector2(128,128), 'test')
+	my_animations.add_animation_cycle(psiwal_img_fns, 'psi_emitter', colorkey=SC_PAL254, swap_colors=WHITE_REMAP)
+	my_animations.add_animation_cycle(crystl_img_fns, 'crystal',     colorkey=SC_PAL254)
 	#
 	explosion_imgs = {'overlord'         : my_animations.all_animations['overlord'][0],
 	                  'scourge'          : my_animations.all_animations['scourge'][0],
-	                  'psi_emitter'      : my_animations.all_animations['psi'][0],
+	                  'psi_emitter'      : my_animations.all_animations['psi_emitter'][0],
+	                  'crystal'          : my_animations.all_animations['crystal'][0],
 	                  'remove_wall'      : my_animations.all_animations['nowall_icon'][0],
 	                  'tele_origin'      : my_animations.all_animations['tele_icons'][0],
 	                  'tele_destination' : my_animations.all_animations['tele_icons'][1]}
@@ -508,7 +509,7 @@ def main(raw_args=None):
 	widget_explosionsmode_submenu_explosion.add_rect(Vector2(tl.x+96, tl.y+20), Vector2(br.x+96, br.y), Color.PAL_BLUE_5, border_radius=4)
 	widget_explosionsmode_submenu_explosion.add_text(Vector2(tl.x+98, tl.y), 'Unit:', 't1', font_dict['large_w'])
 	unit_selection_menu_explosion = UnitMenu(Vector2(tl.x+100, tl.y+24), ['overlord', 'scourge'],             font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
-	unit_selection_menu_wall      = UnitMenu(Vector2(tl.x+100, tl.y+24), ['psi_emitter', 'remove_wall'],      font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
+	unit_selection_menu_wall      = UnitMenu(Vector2(tl.x+100, tl.y+24), ['psi_emitter', 'crystal'],                     font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	unit_selection_menu_teleport  = UnitMenu(Vector2(tl.x+100, tl.y+24), ['tele_origin', 'tele_destination'], font_dict['small_w'], num_rows=4, row_height=16, col_width=68)
 	#
 	tl = Vector2(352, 400)
@@ -855,10 +856,11 @@ def main(raw_args=None):
 				next_gamestate   = GameState.START_MENU
 				transition_alpha = deque(FADE_SEQUENCE)
 
-		#
-		#
-		# WE ARE BOUNDING.
-		#
+		############################################################
+		#                                                          #
+		#   WE ARE BOUNDING                                        #
+		#                                                          #
+		############################################################
 		#
 		elif current_gamestate == GameState.BOUNDING or current_gamestate == GameState.PAUSE_MENU:
 			#
@@ -891,8 +893,10 @@ def main(raw_args=None):
 			#
 			# update obstacles
 			#
-			for obname, ob in world_map.obstacles.items():
+			for obnum,ob in world_map.obstacles.items():
+				#
 				obstart_actions = ob.check_for_ob_start(my_player.position)
+				#
 				if obstart_actions != None:
 					for n in obstart_actions:
 						if n[0] == 'add_lives':
@@ -906,9 +910,7 @@ def main(raw_args=None):
 							my_audio.stop_music()
 							my_audio.play_music(n[1])
 				#
-				ob.check_for_ob_end(my_player.position)
-				#
-				(ob_gfx, ob_snd, ob_kill, ob_tele) = ob.tick()
+				(ob_gfx, ob_snd, ob_kill, ob_tele, ob_wall) = ob.tick()
 				#
 				for n in ob_gfx:
 					if n[0] == 'hallucination':
@@ -931,6 +933,23 @@ def main(raw_args=None):
 					if point_in_box_excl(my_player.position, n[0], n[1]):
 						my_player.update_position(n[2])
 						my_player.clear_orders_and_reset_state(deselect=False)
+				#
+				for n in ob_wall:
+					(wall_key, wall_onoff, wall_strings, wall_pos) = n
+					for i in range(len(wall_onoff)):
+						my_wall_string = str(wall_key[0]) + '-' + wall_strings[i]
+						if wall_onoff[i]:
+							my_animations.start_looping_animation(WALL_UNITS[wall_onoff[i]-1], wall_pos[i], my_wall_string)
+						else:
+							my_animations.remove_looping_animation(my_wall_string)
+					world_map.change_wall_state(wall_key[0], wall_key[1])
+				#
+				ob_ended = ob.check_for_ob_end(my_player.position)
+				#
+				if ob_ended:
+					for loc_name in ob.locs.keys():
+						my_animations.remove_looping_animation(str(ob.obnum) + '-' + loc_name)
+					world_map.change_wall_state(ob.obnum, 0)
 
 			# Terrain / Obstacles ------------------------------------ #
 			world_map.draw(screen, current_window_offset, draw_tiles=True,
@@ -992,7 +1011,6 @@ def main(raw_args=None):
 		#   MAP EDITOR                                             #
 		#                                                          #
 		############################################################
-		#
 		#
 		elif current_gamestate in editor_states:
 			#
@@ -1588,7 +1606,7 @@ def main(raw_args=None):
 					currentob_selection_menu.index         = 0
 					currentob_selection_menu.current_range = (0,0)
 					#
-
+					my_animations.remove_all_animations()
 				#
 				elif current_gamestate in [GameState.MAP_SELECT, GameState.MAP_SELECT_E]:
 					all_map_names = [n for n in os.listdir(MAP_DIR) if n[-5:] == '.json']

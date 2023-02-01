@@ -10,7 +10,7 @@ class AnimationManager:
 	def __init__(self):
 		self.all_animations = {}
 		self.img_offsets    = {}	# for drawing centered
-		self.active_animations = []
+		self.active_animations  = []
 		self.looping_animations = {}
 
 	def add_animation_cycle(self, img_fn_sequence, img_name, colorkey=None, swap_colors=None):
@@ -44,11 +44,16 @@ class AnimationManager:
 			self.active_animations.append([0, img_name, position, centered, alpha_layer])
 
 	def start_looping_animation(self, img_name, position, img_key, centered=True, alpha_layer=False):
-		self.looping_animations[img_name] = [0, img_name, position, centered, alpha_layer]
+		if img_key not in self.looping_animations:
+			self.looping_animations[img_key] = [0, img_name, position, centered, alpha_layer]
 
 	def remove_looping_animation(self, img_key):
 		if img_key in self.looping_animations:
-			del self.looping_animations
+			del self.looping_animations[img_key]
+
+	def remove_all_animations(self):
+		self.active_animations  = []
+		self.looping_animations = {}
 
 	def draw(self, screen, offset):
 		for k,v in self.looping_animations.items():

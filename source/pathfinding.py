@@ -16,7 +16,7 @@ UNIT_RADIUS_EPS = 0.01
 def get_pathfinding_data(map_dat):
 	tile_2_region_id = np.zeros((map_dat.shape[0], map_dat.shape[1]), dtype='i4') - 1
 	num_regions      = 0
-	# bfs to identify each fully-connected pathing regions
+	# bfs to identify fully-connected pathing regions
 	visited = {}
 	for x in range(1, map_dat.shape[0]-1):
 		for y in range(1, map_dat.shape[1]-1):

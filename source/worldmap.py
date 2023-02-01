@@ -1,10 +1,12 @@
+import copy
+import itertools
 import json
 import pygame
 import numpy as np
 
 from pygame.math import Vector2
 
-from source.globals     import GRID_SIZE, PLAYER_RADIUS
+from source.globals     import GRID_SIZE, PLAYER_RADIUS, WALL_UNITS
 from source.misc_gfx    import Color, PF_NODE_RADIUS
 from source.obstacle    import Obstacle
 from source.pathfinding import edge_is_collinear, edge_has_good_incoming_angles, edge_is_traversable, edge_never_turns_into_wall
@@ -47,46 +49,82 @@ class WorldMap:
 		#
 		# parse obstacles
 		#
-		self.obstacles = {}
+		self.obstacles    = {}
+		self.wall_states  = {}	# [obnum][wall_state] = (0, 0, 1, 1, ...)
+		self.wall_strings = {}	# [obnum][wall_state] = ('1-1', '1-2', ...)
 		ob_keys = [n[1] for n in sorted([(int(k[9:]), k) for k in json_dat.keys() if k[:9] == 'obstacle_'])]
-		for k in ob_keys:
-			my_ob_key  = int(k[9:])
+		for obnum,k in enumerate(ob_keys):
 			startbox   = json_dat[k]['startbox']
 			endbox     = json_dat[k]['endbox']
 			revive     = json_dat[k]['revive']
 			actions    = json_dat[k]['actions']
 			loc_keys   = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'loc_'])]
 			event_keys = [n[1] for n in sorted([(int(k2[4:]), k2) for k2 in json_dat[k].keys() if k2[:4] == 'exp_'])]
-			self.obstacles[my_ob_key] = Obstacle((Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
-			                                     (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
-			                                     Vector2(revive[0], revive[1]),
-			                                     actions,
-			                                     font_loc=font_dict['small'])
+			self.obstacles[obnum] = Obstacle(obnum,
+			                                 (Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
+			                                 (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
+			                                 Vector2(revive[0], revive[1]),
+			                                 actions,
+			                                 font_loc=font_dict['small'])
 			for k2 in loc_keys:
 				my_loc_key = k2[4:]
 				my_loc_dat = json_dat[k][k2]
-				self.obstacles[my_ob_key].add_location(my_loc_key, Vector2(my_loc_dat[0], my_loc_dat[1]), Vector2(my_loc_dat[2], my_loc_dat[3]))
+				self.obstacles[obnum].add_location(my_loc_key, Vector2(my_loc_dat[0], my_loc_dat[1]), Vector2(my_loc_dat[2], my_loc_dat[3]))
+			#
+			# get all possible wall states for this ob
+			#
+			loc_2_ind    = {loc_keys[n][4:]:n for n in range(len(loc_keys))}
+			ind_2_loc    = {loc_2_ind[n]:n for n in loc_2_ind.keys()}
+			my_wall_keys = [tuple([0 for n in loc_keys])]
+			for k2 in event_keys:
+				my_wall_keys.append([0 for n in loc_keys])
+				my_event_dat = json_dat[k][k2]
+				for i,unitname in enumerate(my_event_dat[1]):
+					if unitname in WALL_UNITS:
+						my_wall_keys[-1][loc_2_ind[my_event_dat[0][i]]] = 1
+				my_wall_keys[-1] = tuple(my_wall_keys[-1])
+			self.wall_states[obnum] = sorted(list(set(my_wall_keys)))
+			wall_state_by_count = []
+			wall_units_by_count = []
 			for k2 in event_keys:
 				my_event_dat = json_dat[k][k2]
+				my_k = [0 for n in loc_keys]
+				my_u = [0 for n in loc_keys]
+				for i,unitname in enumerate(my_event_dat[1]):
+					if unitname in WALL_UNITS:
+						my_k[loc_2_ind[my_event_dat[0][i]]] = 1
+						my_u[loc_2_ind[my_event_dat[0][i]]] = WALL_UNITS.index(unitname) + 1
+				wall_state_by_count.append(self.wall_states[obnum].index(tuple(my_k)))
+				wall_units_by_count.append([n for n in my_u])
+			self.wall_strings[obnum] = [loc_keys[n][4:] for n in range(len(loc_keys))]
+			#
+			# construct obstacle object
+			#
+			for obcount,k2 in enumerate(event_keys):
+				my_event_dat = json_dat[k][k2]
+				#
+				my_wall_state = wall_state_by_count[obcount]
+				my_wall_units = wall_units_by_count[obcount]
+				self.obstacles[obnum].change_wall_state(my_wall_state, my_wall_units, self.wall_strings[obnum])
 				#
 				tele_origin_loc = None
 				tele_dest_loc   = None
 				for i,unitname in enumerate(my_event_dat[1]):
 					if unitname == 'tele_origin' and tele_origin_loc == None:
 						tele_origin_loc = my_event_dat[0][i]
-					if unitname == 'tele_destination' and tele_dest_loc == None:
+					elif unitname == 'tele_destination' and tele_dest_loc == None:
 						tele_dest_loc = my_event_dat[0][i]
 				if tele_origin_loc != None and tele_dest_loc != None:
-					self.obstacles[my_ob_key].add_event_teleport(tele_origin_loc, tele_dest_loc)
+					self.obstacles[obnum].add_event_teleport(tele_origin_loc, tele_dest_loc)
 				#
 				loc_list  = []
 				unit_list = []
 				for i in range(len(my_event_dat[0])):
-					if my_event_dat[1][i] not in ['tele_origin', 'tele_destination']:
+					if my_event_dat[1][i] not in ['tele_origin', 'tele_destination']+WALL_UNITS:
 						loc_list.append(my_event_dat[0][i])
 						unit_list.append(my_event_dat[1][i])
-				self.obstacles[my_ob_key].add_event_explode_locs(loc_list, unit_list, my_event_dat[2])
-			self.obstacles[my_ob_key].bake()
+				self.obstacles[obnum].add_event_explode_locs(loc_list, unit_list, my_event_dat[2])
+			self.obstacles[obnum].bake()
 
 		#
 		# lets sanitize the map: make sure it's surrounded by unmovable terrain
@@ -99,55 +137,100 @@ class WorldMap:
 			self.wall_map[self.wall_map.shape[0]-1,j] = 1
 
 		#
+		# how many different wallmaps do we need to account for all the wall states?
+		#
+		sk = sorted(self.wall_states.keys())
+		self.current_wall_state = tuple([0 for k in sk])
+		self.all_wall_maps = {}
+		wall_combinations  = [[(k,n) for n in range(len(self.wall_states[k]))] for k in sk]
+		wall_combinations  = list(itertools.product(*wall_combinations))
+		for wc in wall_combinations:
+			obnums  = [n[0] for n in wc]
+			wstates = [n[1] for n in wc]
+			wkey    = tuple(wstates)
+			self.all_wall_maps[wkey] = np.copy(self.wall_map)
+			for i in range(len(obnums)):
+				my_wall_states  = self.wall_states[obnums[i]][wstates[i]]
+				my_wall_strings = self.wall_strings[obnums[i]]
+				for j in range(len(my_wall_states)):
+					if my_wall_states[j]:
+						[tl,br] = self.obstacles[obnums[i]].locs[my_wall_strings[j]]
+						tl_q = (int(tl.x/GRID_SIZE), int(tl.y/GRID_SIZE))
+						br_q = (int(br.x/GRID_SIZE), int(br.y/GRID_SIZE))
+						self.all_wall_maps[wkey][tl_q[0]:br_q[0],tl_q[1]:br_q[1]] = 1
+
+		#
 		# lets construct all the stuff we need for pathfinding
 		#
-		(pf_nodes, pf_nodedict, pf_collision, pf_regionmap) = get_pathfinding_data(self.wall_map)
+		self.all_nodes     = {}
+		self.all_edges     = {}
+		self.all_collision = {}
+		self.all_regionmap = {}
+		for wkey in self.all_wall_maps.keys():
+			(pf_nodes, pf_nodedict, pf_collision, pf_regionmap) = get_pathfinding_data(self.all_wall_maps[wkey])
+			#
+			pf_collision_scaled = []
+			for rid in range(len(pf_nodes)):
+				pf_collision_scaled.append([])
+				for line in pf_collision[rid]:
+					pf_collision_scaled[-1].append((Vector2(line[0][0]*GRID_SIZE, line[0][1]*GRID_SIZE),
+					                                Vector2(line[1][0]*GRID_SIZE, line[1][1]*GRID_SIZE)))
+			#
+			pf_nodes_scaled = []
+			for rid in range(len(pf_nodes)):
+				pf_nodes_scaled.append([])
+				for (x,y) in pf_nodes[rid]:
+					pf_nodes_scaled[-1].append(Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2))
+			#
+			filt_count = [0,0,0,0,0]
+			pf_edges = []
+			for rid in range(len(pf_nodes)):
+				candidate_edges    = []
+				candidate_edges_ij = []
+				for i in range(len(pf_nodes[rid])):
+					for j in range(i+1,len(pf_nodes[rid])):
+						edge        = [pf_nodes[rid][i], pf_nodes[rid][j]]
+						edge_scaled = [pf_nodes_scaled[rid][i], pf_nodes_scaled[rid][j]]
+						filt_count[0] += 1
+						if edge_has_good_incoming_angles(edge, pf_nodedict[rid]):
+							filt_count[1] += 1
+							if edge_never_turns_into_wall(edge, pf_nodedict[rid]):
+								filt_count[2] += 1
+								if edge_is_traversable(edge_scaled, self.all_wall_maps[wkey], self.p_loswidth, stepsize=0.9):
+									filt_count[3] += 1
+									candidate_edges.append([pf_nodes[rid][i], pf_nodes[rid][j]])
+									candidate_edges_ij.append((i,j))
+				pf_edges.append({})
+				for i in range(len(pf_nodes[rid])):
+					pf_edges[-1][i] = []
+				for (i,j) in candidate_edges_ij:
+					edge = [pf_nodes[rid][i], pf_nodes[rid][j]]
+					if not edge_is_collinear(edge, pf_nodedict[rid], candidate_edges):
+						filt_count[4] += 1
+						pf_edges[-1][i].append(j)
+						pf_edges[-1][j].append(i)
+			#
+			self.all_nodes[wkey]     = copy.deepcopy(pf_nodes_scaled)
+			self.all_edges[wkey]     = copy.deepcopy(pf_edges)
+			self.all_collision[wkey] = copy.deepcopy(pf_collision_scaled)
+			self.all_regionmap[wkey] = copy.deepcopy(pf_regionmap)
 		#
-		pf_collision_scaled = []
-		for rid in range(len(pf_nodes)):
-			pf_collision_scaled.append([])
-			for line in pf_collision[rid]:
-				pf_collision_scaled[-1].append((Vector2(line[0][0]*GRID_SIZE, line[0][1]*GRID_SIZE),
-				                                Vector2(line[1][0]*GRID_SIZE, line[1][1]*GRID_SIZE)))
+		self.wall_map  = self.all_wall_maps[self.current_wall_state]
+		self.nodes     = self.all_nodes[self.current_wall_state]
+		self.edges     = self.all_edges[self.current_wall_state]
+		self.collision = self.all_collision[self.current_wall_state]
+		self.regionmap = self.all_regionmap[self.current_wall_state]
+
+	def change_wall_state(self, obnum, statenum):
+		self.current_wall_state = [n for n in self.current_wall_state]
+		self.current_wall_state[obnum] = statenum
+		self.current_wall_state = tuple(self.current_wall_state)
 		#
-		pf_nodes_scaled = []
-		for rid in range(len(pf_nodes)):
-			pf_nodes_scaled.append([])
-			for (x,y) in pf_nodes[rid]:
-				pf_nodes_scaled[-1].append(Vector2(x*GRID_SIZE + GRID_SIZE/2, y*GRID_SIZE + GRID_SIZE/2))
-		#
-		filt_count = [0,0,0,0,0]
-		pf_edges = []
-		for rid in range(len(pf_nodes)):
-			candidate_edges    = []
-			candidate_edges_ij = []
-			for i in range(len(pf_nodes[rid])):
-				for j in range(i+1,len(pf_nodes[rid])):
-					edge        = [pf_nodes[rid][i], pf_nodes[rid][j]]
-					edge_scaled = [pf_nodes_scaled[rid][i], pf_nodes_scaled[rid][j]]
-					filt_count[0] += 1
-					if edge_has_good_incoming_angles(edge, pf_nodedict[rid]):
-						filt_count[1] += 1
-						if edge_never_turns_into_wall(edge, pf_nodedict[rid]):
-							filt_count[2] += 1
-							if edge_is_traversable(edge_scaled, self.wall_map, self.p_loswidth, stepsize=0.9):
-								filt_count[3] += 1
-								candidate_edges.append([pf_nodes[rid][i], pf_nodes[rid][j]])
-								candidate_edges_ij.append((i,j))
-			pf_edges.append({})
-			for i in range(len(pf_nodes[rid])):
-				pf_edges[-1][i] = []
-			for (i,j) in candidate_edges_ij:
-				edge = [pf_nodes[rid][i], pf_nodes[rid][j]]
-				if not edge_is_collinear(edge, pf_nodedict[rid], candidate_edges):
-					filt_count[4] += 1
-					pf_edges[-1][i].append(j)
-					pf_edges[-1][j].append(i)
-		#
-		self.nodes     = pf_nodes_scaled
-		self.edges     = pf_edges
-		self.collision = pf_collision_scaled
-		self.regionmap = pf_regionmap
+		self.wall_map  = self.all_wall_maps[self.current_wall_state]
+		self.nodes     = self.all_nodes[self.current_wall_state]
+		self.edges     = self.all_edges[self.current_wall_state]
+		self.collision = self.all_collision[self.current_wall_state]
+		self.regionmap = self.all_regionmap[self.current_wall_state]
 
 	def get_mapsize(self):
 		return Vector2(self.wall_map.shape[0]*GRID_SIZE, self.wall_map.shape[1]*GRID_SIZE)
