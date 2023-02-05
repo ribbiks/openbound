@@ -243,6 +243,7 @@ def main(raw_args=None):
 	editor_currentexpnum  = None
 	highlight_walls       = False
 	selected_terrain_box  = None
+	current_terraintool   = None
 
 	#
 	#
@@ -1142,6 +1143,7 @@ def main(raw_args=None):
 				menu_widgets_2 = [widget_terrainmode_text,
 				                  widget_terrainmode_highlightwalls]
 				#
+				prev_terraintool    = current_terraintool
 				current_terraintool = terraintool_selection_menu.get_selected_content()
 				(tile_k, tile_wall, tile_name, tile_img) = terrain_selection_menu.get_selected_content()
 				#
@@ -1206,27 +1208,30 @@ def main(raw_args=None):
 				# select terrain
 				#
 				if current_terraintool == 'select':
-					if mouse_in_editor_region and snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
-						if selection_box[0] != None:
-							if selected_terrain_box != None and selected_terrain_box[2]:
-								clear_sel_tb = True
-							else:
-								tl = Vector2(min(selection_box[0].x, selection_box[1].x), min(selection_box[0].y, selection_box[1].y)) - current_window_offset
-								br = Vector2(max(selection_box[0].x, selection_box[1].x), max(selection_box[0].y, selection_box[1].y)) - current_window_offset
-								tl = Vector2(int(tl.x/GRID_SIZE), int(tl.y/GRID_SIZE))
-								br = Vector2(int(br.x/GRID_SIZE + 1), int(br.y/GRID_SIZE + 1))
-								selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), False, Vector2(0,0), Vector2(0,0), False]
-					if selected_terrain_box != None and not selected_terrain_box[2]:
-						draw_selection_box(screen, [selected_terrain_box[0]*GRID_SIZE, selected_terrain_box[1]*GRID_SIZE], current_window_offset, Color.SELECTION)
-					if left_released and selected_terrain_box != None:
-						selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), True, Vector2(0,0), Vector2(0,0), False]
-						stb = [[int(selected_terrain_box[0].x), int(selected_terrain_box[0].y)],
-						       [int(selected_terrain_box[1].x), int(selected_terrain_box[1].y)]]
-						selected_tileblock   = np.copy(editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]])
-						terrainbox_blink_ind = 8
-						editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]] = 0
-					if right_clicking and selected_terrain_box != None:
+					if prev_terraintool == 'move':
 						clear_sel_tb = True
+					else:
+						if mouse_in_editor_region and snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
+							if selection_box[0] != None:
+								if selected_terrain_box != None and selected_terrain_box[2]:
+									clear_sel_tb = True
+								else:
+									tl = Vector2(min(selection_box[0].x, selection_box[1].x), min(selection_box[0].y, selection_box[1].y)) - current_window_offset
+									br = Vector2(max(selection_box[0].x, selection_box[1].x), max(selection_box[0].y, selection_box[1].y)) - current_window_offset
+									tl = Vector2(int(tl.x/GRID_SIZE), int(tl.y/GRID_SIZE))
+									br = Vector2(int(br.x/GRID_SIZE + 1), int(br.y/GRID_SIZE + 1))
+									selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), False, Vector2(0,0), Vector2(0,0), False]
+						if selected_terrain_box != None and not selected_terrain_box[2]:
+							draw_selection_box(screen, [selected_terrain_box[0]*GRID_SIZE, selected_terrain_box[1]*GRID_SIZE], current_window_offset, Color.SELECTION)
+						if left_released and selected_terrain_box != None:
+							selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), True, Vector2(0,0), Vector2(0,0), False]
+							stb = [[int(selected_terrain_box[0].x), int(selected_terrain_box[0].y)],
+							       [int(selected_terrain_box[1].x), int(selected_terrain_box[1].y)]]
+							selected_tileblock   = np.copy(editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]])
+							terrainbox_blink_ind = 8
+							editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]] = 0
+						if right_clicking and selected_terrain_box != None:
+							clear_sel_tb = True
 				#
 				# move terrain
 				#
@@ -1684,6 +1689,7 @@ def main(raw_args=None):
 					terrain_selection_menu.index     = 0
 					terraintool_selection_menu.index = 0
 					selected_terrain_box             = None
+					current_terraintool              = None
 					#
 					currentob_selection_menu.content       = []
 					currentob_selection_menu.index         = 0
