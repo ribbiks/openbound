@@ -18,7 +18,7 @@ from source.audiomanager     import AudioManager
 from source.cursor           import Cursor
 from source.draggableobject  import DraggableObject
 from source.font             import Font
-from source.geometry         import get_window_offset, point_in_box_excl
+from source.geometry         import get_window_offset, point_in_box_excl, value_clamp
 from source.globals          import GRID_SIZE, PLAYER_RADIUS, WALL_UNITS
 from source.mauzling         import Mauzling
 from source.misc_gfx         import Color, draw_grid, draw_map_bounds, draw_selection_box, FADE_SEQUENCE
@@ -26,10 +26,11 @@ from source.obstacle         import Obstacle
 from source.resizablebox     import ResizableBox
 from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
+from source.tilemap          import TileMap
 from source.tile_data        import TILE_DATA
 from source.uiwidget         import UIWidget
 from source.util             import get_blank_obdata, get_file_paths, read_map_data_from_json, write_map_data_to_json
-from source.worldmap         import TileMap, WorldMap
+from source.worldmap         import WorldMap
 
 GAME_VERS = 'OpenBound v0.1'
 FRAMERATE = 23.8095
@@ -81,6 +82,9 @@ def main(raw_args=None):
 	                                         ['zerglingdebris0003.png']*50 +
 	                                         ['zerglingdebris0004.png']*50 +
 	                                         ['zerglingdebris0005.png']*50)
+	t_tool_img_fns = get_file_paths(GFX_DIR, ['pencil_button.png',
+	                                          'selection_rect_button.png',
+	                                          'move_button.png'])
 	ui_gfx_img_fns = get_file_paths(GFX_DIR, ['ling_icon.png'])
 	psiwal_img_fns = get_file_paths(GFX_DIR, ['psiemit0000.bmp', 'psiemit0000.bmp',
 	                                          'psiemit0001.bmp', 'psiemit0001.bmp',
@@ -233,10 +237,12 @@ def main(raw_args=None):
 	editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
 	editor_prevtilemapdim = editor_tilemap.shape
 	editor_tiledrawer     = TileMap(tile_fns)
+	editor_tiledrawer_sel = TileMap(tile_fns)
 	editor_obdata         = []
 	editor_currentobnum   = None
 	editor_currentexpnum  = None
 	highlight_walls       = False
+	selected_terrain_box  = None
 
 	#
 	#
@@ -437,7 +443,13 @@ def main(raw_args=None):
 	widget_terrainmode_text.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
 	(tl, br) = (Vector2(464, 368), Vector2(560, 464))
 	widget_terrainmode_text.add_rect(Vector2(tl.x, tl.y), Vector2(br.x, br.y), Color.PAL_BLUE_5, border_radius=4)
-	widget_terrainmode_text.add_text(Vector2((tl.x+br.x)/2 - 1, tl.y + 12), 'tilename',  'tilename', font_dict['small_w'], max_width=84, is_centered=True)
+	#
+	widget_terraintool_icons = UIWidget()
+	widget_terraintool_icons.add_image(Vector2(tl.x+13, tl.y+9),  t_tool_img_fns[0])
+	widget_terraintool_icons.add_image(Vector2(tl.x+8,  tl.y+40), t_tool_img_fns[1])
+	widget_terraintool_icons.add_image(Vector2(tl.x+9,  tl.y+66), t_tool_img_fns[2])
+	#
+	terraintool_selection_menu = UnitMenu(Vector2(tl.x+4, tl.y+6), ['draw', 'select', 'move'], font_dict['large_w'], num_rows=3, row_height=28, col_width=88, offset=Vector2(38,6), autodeselect=True)
 	#
 	(tl, br) = (Vector2(144, 432), Vector2(192, 464))
 	widget_terrainmode_highlightwalls = UIWidget()
@@ -447,7 +459,7 @@ def main(raw_args=None):
 	widget_terrainmode_highlightwalls.add_text((tl+br)/2 + Vector2(1,7),  'walls',     'walls',     font_dict['small_w'], is_centered=True)
 	widget_terrainmode_highlightwalls.add_return_message('toggle_wall_highlighting')
 	#
-	terraindim_selection_menu = UnitMenu(Vector2(154, 372), ['16x16', '32x32', '64x64'], font_dict['small_w'], num_rows=3, row_height=16, col_width=28)
+	terraindim_selection_menu = UnitMenu(Vector2(154, 372), ['16x16', '32x32', '64x64'], font_dict['small_w'], num_rows=3, row_height=16, col_width=28, autodeselect=True)
 	#
 	(tl, br) = (Vector2(208, 368), Vector2(432, 464))
 	terrain_selection_menu = TerrainMenu(tl, tile_fns, font_dict['small_w'])
@@ -722,14 +734,14 @@ def main(raw_args=None):
 		#
 		if left_clicking:
 			leftclick_is_down = True
-			selection_box = [Vector2(mouse_pos_screen.x, mouse_pos_screen.y), None]
+			selection_box = [Vector2(mouse_pos_map.x, mouse_pos_map.y), None]
 		if left_released:
 			leftclick_is_down = False
 			if selection_box[0] != None:
 				if selection_box[1] == None:
 					selection_box[1] = selection_box[0]
 		if selection_box[0] != None:
-			selection_box[1] = Vector2(mouse_pos_screen.x, mouse_pos_screen.y)
+			selection_box[1] = Vector2(mouse_pos_map.x, mouse_pos_map.y)
 		#
 		if right_clicking:
 			rightclick_is_down = True
@@ -874,9 +886,9 @@ def main(raw_args=None):
 				#
 				if left_released and selection_box[0] != None:
 					if (selection_box[1] - selection_box[0]).length() < 4:
-						my_player.check_selection_click(selection_box[1] - current_window_offset)
+						my_player.check_selection_click(selection_box[1])
 					else:
-						my_player.check_selection_box([selection_box[0] - current_window_offset, selection_box[1] - current_window_offset])
+						my_player.check_selection_box([selection_box[0], selection_box[1]])
 				#
 				if right_clicking and mouse_in_playable_maparea:
 					draw_cursor = my_player.issue_new_order(mouse_pos_map, shift_pressed)
@@ -965,7 +977,7 @@ def main(raw_args=None):
 			# Draw UI elements --------------------------------------- #
 			if current_gamestate == GameState.BOUNDING:
 				if selection_box[0] != None:
-					draw_selection_box(screen, selection_box, Color.SELECTION)
+					draw_selection_box(screen, selection_box, current_window_offset, Color.SELECTION)
 			#
 			if my_player.is_selected:
 				widget_playerselected.text_data['lifecount'] = str(my_player.num_lives)
@@ -1019,6 +1031,7 @@ def main(raw_args=None):
 			dragaction_released    = left_released
 			#
 			any_selectionmenu_selected = any([terraindim_selection_menu.is_selected,
+				                              terraintool_selection_menu.is_selected,
 			                                  terrain_selection_menu.is_selected,
 			                                  currentob_selection_menu.is_selected,
 			                                  obinfo_move_menu.is_selected,
@@ -1052,12 +1065,17 @@ def main(raw_args=None):
 				editor_tilemap = np.pad(editor_tilemap, [(0,0), (0,di_y-editor_prevtilemapdim[1])])
 			editor_prevtilemapdim = editor_tilemap.shape
 			#
-			# shrink area that mapobjects can be placed/dragged into so that they can't overlap editor elements at the bottom
+			# set area where mapobjects can be placed/dragged so that they can't overlap editor elements at the bottom
 			#
 			mapobject_limits = [Vector2(1*GRID_SIZE,1*GRID_SIZE),
 			                    Vector2((editor_tilemap.shape[0] - 1)*GRID_SIZE, int(min(editor_tilemap.shape[1]*GRID_SIZE, 352-current_window_offset.y)/GRID_SIZE - 1)*GRID_SIZE)]
 			#
 			editor_tiledrawer.draw(screen, current_window_offset, editor_tilemap, highlight_walls)
+			if selected_terrain_box != None and selected_terrain_box[2]:
+				sel_tb_off  = selected_terrain_box[0]*GRID_SIZE
+				move_tb_off = selected_terrain_box[3]*GRID_SIZE
+				editor_tiledrawer_sel.draw(screen, current_window_offset+sel_tb_off+move_tb_off, selected_tileblock, highlight_walls)
+			#
 			draw_map_bounds(screen, current_map_bounds, current_window_offset, Color.PAL_WHITE)
 			#
 			# buttons and gfx that are present in every mode
@@ -1124,8 +1142,8 @@ def main(raw_args=None):
 				menu_widgets_2 = [widget_terrainmode_text,
 				                  widget_terrainmode_highlightwalls]
 				#
-				(tile_k, tile_wall, tile_name, tile_img)      = terrain_selection_menu.get_selected_content()
-				widget_terrainmode_text.text_data['tilename'] = str(tile_name)
+				current_terraintool = terraintool_selection_menu.get_selected_content()
+				(tile_k, tile_wall, tile_name, tile_img) = terrain_selection_menu.get_selected_content()
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
@@ -1137,12 +1155,11 @@ def main(raw_args=None):
 							highlight_walls = not highlight_walls
 				#
 				terraindim_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
+				terraintool_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed, inc_menus_key, dec_menus_key)
 				terraindim_selection_menu.draw(screen)
+				terraintool_selection_menu.draw(screen)
+				widget_terraintool_icons.draw(screen)
 				current_terrain_tile_dim = terraindim_selection_menu.get_selected_content()
-				#
-				if tile_img != None:
-					tile_img_preview = pygame.transform.scale(tile_img, (4*GRID_SIZE, 4*GRID_SIZE))
-					screen.blit(tile_img_preview, (480,392))
 				#
 				if arrow_left and not arrow_right:
 					terrain_selection_menu.move_left()
@@ -1156,12 +1173,25 @@ def main(raw_args=None):
 				terrain_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
 				terrain_selection_menu.draw(screen, highlight_walls)
 				#
-				# draw terrain!
+				if selected_terrain_box != None and selected_terrain_box[2]:
+					if terrainbox_blink_ind > 4:
+						draw_selection_box(screen, [selected_terrain_box[0]*GRID_SIZE, selected_terrain_box[1]*GRID_SIZE], current_window_offset+selected_terrain_box[3]*GRID_SIZE, Color.PAL_YEL_2)
+					else:
+						draw_selection_box(screen, [selected_terrain_box[0]*GRID_SIZE, selected_terrain_box[1]*GRID_SIZE], current_window_offset+selected_terrain_box[3]*GRID_SIZE, Color.PAL_YEL_3)
+					terrainbox_blink_ind -= 1
+					if terrainbox_blink_ind <= 0:
+						terrainbox_blink_ind = 8
 				#
-				if mouse_in_editor_region:
-					snap_x = int(mouse_pos_map.x/GRID_SIZE)
-					snap_y = int(mouse_pos_map.y/GRID_SIZE)
-					if snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
+				# terrain editing
+				#
+				snap_x = int(mouse_pos_map.x/GRID_SIZE)
+				snap_y = int(mouse_pos_map.y/GRID_SIZE)
+				clear_sel_tb = False
+				#
+				# draw terrain
+				#
+				if current_terraintool == 'draw':
+					if mouse_in_editor_region and snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
 						mouse_tile_highlight = pygame.Surface(Vector2(GRID_SIZE-1, GRID_SIZE-1))
 						mouse_tile_highlight.fill(Color.PAL_WHITE)
 						mouse_tile_highlight.set_alpha(40)
@@ -1170,6 +1200,57 @@ def main(raw_args=None):
 							editor_tilemap[snap_x,snap_y] = tile_k
 						elif rightclick_is_down:
 							editor_tilemap[snap_x,snap_y] = 0
+					if selected_terrain_box != None:
+						clear_sel_tb = True
+				#
+				# select terrain
+				#
+				if current_terraintool == 'select':
+					if mouse_in_editor_region and snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
+						if selection_box[0] != None:
+							if selected_terrain_box != None and selected_terrain_box[2]:
+								clear_sel_tb = True
+							else:
+								tl = Vector2(min(selection_box[0].x, selection_box[1].x), min(selection_box[0].y, selection_box[1].y)) - current_window_offset
+								br = Vector2(max(selection_box[0].x, selection_box[1].x), max(selection_box[0].y, selection_box[1].y)) - current_window_offset
+								tl = Vector2(int(tl.x/GRID_SIZE), int(tl.y/GRID_SIZE))
+								br = Vector2(int(br.x/GRID_SIZE + 1), int(br.y/GRID_SIZE + 1))
+								selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), False, Vector2(0,0), Vector2(0,0), False]
+					if selected_terrain_box != None and not selected_terrain_box[2]:
+						draw_selection_box(screen, [selected_terrain_box[0]*GRID_SIZE, selected_terrain_box[1]*GRID_SIZE], current_window_offset, Color.SELECTION)
+					if left_released and selected_terrain_box != None:
+						selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), True, Vector2(0,0), Vector2(0,0), False]
+						stb = [[int(selected_terrain_box[0].x), int(selected_terrain_box[0].y)],
+						       [int(selected_terrain_box[1].x), int(selected_terrain_box[1].y)]]
+						selected_tileblock   = np.copy(editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]])
+						terrainbox_blink_ind = 8
+						editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]] = 0
+					if right_clicking and selected_terrain_box != None:
+						clear_sel_tb = True
+				#
+				# move terrain
+				#
+				if current_terraintool == 'move':
+					if mouse_in_editor_region and snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
+						if selection_box[0] != None and selected_terrain_box != None:
+							if not selected_terrain_box[5]:
+								tl = selected_terrain_box[0]*GRID_SIZE + selected_terrain_box[3]*GRID_SIZE
+								br = selected_terrain_box[1]*GRID_SIZE + selected_terrain_box[3]*GRID_SIZE
+								selected_terrain_box[5] = point_in_box_excl(selection_box[0], tl, br)
+							elif selected_terrain_box[5]:
+								selected_terrain_box[3] = Vector2(value_clamp(int((selection_box[1].x-selection_box[0].x)/GRID_SIZE + selected_terrain_box[4].x), -int(selected_terrain_box[0].x), int(editor_tilemap.shape[0]-selected_terrain_box[1].x)),
+								                                  value_clamp(int((selection_box[1].y-selection_box[0].y)/GRID_SIZE + selected_terrain_box[4].y), -int(selected_terrain_box[0].y), int(editor_tilemap.shape[1]-selected_terrain_box[1].y)))
+					if left_released and selected_terrain_box != None:
+						selected_terrain_box[4] = Vector2(selected_terrain_box[3].x, selected_terrain_box[3].y)
+						selected_terrain_box[5] = False
+					if (right_clicking or return_pressed) and selected_terrain_box != None:
+						clear_sel_tb = True
+				#
+				if clear_sel_tb:
+					stb = [[int(selected_terrain_box[0].x) + int(selected_terrain_box[3].x), int(selected_terrain_box[0].y) + int(selected_terrain_box[3].y)],
+					       [int(selected_terrain_box[1].x) + int(selected_terrain_box[3].x), int(selected_terrain_box[1].y) + int(selected_terrain_box[3].y)]]
+					editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]] = selected_tileblock
+					selected_terrain_box = None
 
 			#
 			# (3) LOCATIONS MODE
@@ -1599,8 +1680,10 @@ def main(raw_args=None):
 					digitinput_mapsizey.reset_with_new_str(str(int(DEFAULT_MAP_DIM.y)))
 					draggable_playerstart.center_pos = DEFAULT_PLAYER_START
 					#
-					terraindim_selection_menu.index = 0
-					terrain_selection_menu.index    = 0
+					terraindim_selection_menu.index  = 0
+					terrain_selection_menu.index     = 0
+					terraintool_selection_menu.index = 0
+					selected_terrain_box             = None
 					#
 					currentob_selection_menu.content       = []
 					currentob_selection_menu.index         = 0

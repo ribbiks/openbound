@@ -13,11 +13,12 @@ from source.util      import get_file_paths
 # base menu class
 #
 class SelectionMenu:
-	def __init__(self, pos, content, font, num_rows=8, row_height=8, col_width=128, sort_field=None):
+	def __init__(self, pos, content, font, num_rows=8, row_height=8, col_width=128, sort_field=None, offset=Vector2(4,4), autodeselect=False):
 		self.pos     = pos
 		self.content = []
 		self.font    = font
 		self.index   = 0
+		self.offset  = Vector2(offset.x, offset.y)
 		#
 		self.content = [(n,) for n in content]
 		if sort_field != None and sort_field >= 0:
@@ -31,6 +32,7 @@ class SelectionMenu:
 		self.current_range = (0, min(self.num_rows, len(self.content)))
 		self.empty_message = ''
 		self.is_selected   = True
+		self.autodeselect  = autodeselect
 
 	def resort(self, sort_field):
 		sorted_content = sorted([(n[sort_field], n) for n in self.content])
@@ -46,6 +48,8 @@ class SelectionMenu:
 			return (n for n in self.content[self.index])
 
 	def increase_index(self):
+		if self.autodeselect:
+			self.is_selected = False
 		if self.is_selected and self.current_delay <= 0 and self.index < len(self.content)-1:
 			self.index += 1
 			self.current_delay = 2
@@ -55,6 +59,8 @@ class SelectionMenu:
 		return False
 
 	def decrease_index(self):
+		if self.autodeselect:
+			self.is_selected = False
 		if self.is_selected and self.current_delay <= 0 and self.index > 0:
 			self.index -= 1
 			self.current_delay = 2
@@ -87,12 +93,13 @@ class SelectionMenu:
 				self.is_selected = False
 			if self.current_delay > 0:
 				self.current_delay -= 1
+			if self.autodeselect:
+				self.is_selected = False
 			return output_bool
 
 	def draw(self, screen):
 		if not self.content and self.empty_message:
-			offset = Vector2(4,4)
-			self.font.render(screen, self.empty_message, self.pos + offset)
+			self.font.render(screen, self.empty_message, self.pos + self.offset)
 		else:
 			tl = self.pos + Vector2(0, (self.index - self.current_range[0]) * self.row_height)
 			br = self.pos + Vector2(self.col_width, (self.index - self.current_range[0] + 1) * self.row_height)
@@ -103,20 +110,22 @@ class SelectionMenu:
 				pygame.draw.rect(screen, Color.PAL_BLUE_4, my_rect, border_radius=2)
 			#
 			for i in range(self.current_range[0], self.current_range[1]):
-				offset = Vector2(4, (i - self.current_range[0]) * self.row_height + 5)
+				offset = self.offset + Vector2(0, (i - self.current_range[0]) * self.row_height + 1)
 				self.font.render(screen, self.content[i][0], self.pos + offset, max_width=self.col_width-4)
 
 #
 #
 #
 class MapMenu(SelectionMenu):
-	def __init__(self, pos, mapfile_list, font, num_rows=15, row_height=16, col_width=248, sort_field=0):
+	def __init__(self, pos, mapfile_list, font, num_rows=15, row_height=16, col_width=248, sort_field=0, offset=Vector2(4,4), autodeselect=False):
 		#
 		super().__init__(pos, mapfile_list, font,
 		                 num_rows=num_rows,
 		                 row_height=row_height,
 		                 col_width=col_width,
-		                 sort_field=sort_field)
+		                 sort_field=sort_field,
+		                 offset=offset,
+		                 autodeselect=autodeselect)
 		#
 		self.content = []
 		for (filename_clean, fn) in mapfile_list:
@@ -138,13 +147,15 @@ class MapMenu(SelectionMenu):
 #
 #
 class UnitMenu(SelectionMenu):
-	def __init__(self, pos, unitdat_list, font, num_rows=5, row_height=16, col_width=128, sort_field=None):
+	def __init__(self, pos, unitdat_list, font, num_rows=5, row_height=16, col_width=128, sort_field=None, offset=Vector2(4,4), autodeselect=False):
 		#
 		super().__init__(pos, unitdat_list, font,
 		                 num_rows=num_rows,
 		                 row_height=row_height,
 		                 col_width=col_width,
-		                 sort_field=sort_field)
+		                 sort_field=sort_field,
+		                 offset=offset,
+		                 autodeselect=autodeselect)
 		#
 		self.empty_message = 'no units found.'
 		self.is_selected   = False
@@ -159,7 +170,7 @@ class UnitMenu(SelectionMenu):
 #
 #
 class TerrainMenu:
-	def __init__(self, pos, tilefn_list, font, num_rows=4, num_cols=10, row_height=24, col_width=24, sort_field=None):
+	def __init__(self, pos, tilefn_list, font, num_rows=4, num_cols=10, row_height=24, col_width=24, sort_field=None, offset=Vector2(4,4)):
 		#
 		self.pos           = pos
 		self.font          = font
@@ -272,7 +283,15 @@ class TerrainMenu:
 			for i in range(self.current_range[0], self.current_range[1]):
 				for j in range(len(self.content[i])):
 					offset = Vector2(j*self.col_width + 4, (i - self.current_range[0])*self.row_height + 4)
+					my_pos = self.pos + offset
 					if self.content[i][j][3] != None:
-						screen.blit(self.content[i][j][3], self.pos + offset)
+						screen.blit(self.content[i][j][3], my_pos)
+					else:
+						dx = Vector2(GRID_SIZE, 0)
+						dy = Vector2(0, GRID_SIZE)
+						pygame.draw.line(screen, Color.PAL_BLUE_3,       my_pos,    my_pos+dx, width=1)
+						pygame.draw.line(screen, Color.PAL_BLUE_3,    my_pos+dx, my_pos+dx+dy, width=1)
+						pygame.draw.line(screen, Color.PAL_BLUE_3, my_pos+dx+dy,    my_pos+dy, width=1)
+						pygame.draw.line(screen, Color.PAL_BLUE_3,    my_pos+dy,       my_pos, width=1)
 					if highlight_walls and self.content[i][j][1]:
-						screen.blit(self.wall_highlight, self.pos + offset, special_flags=pygame.BLEND_ALPHA_SDL2)
+						screen.blit(self.wall_highlight, my_pos, special_flags=pygame.BLEND_ALPHA_SDL2)
