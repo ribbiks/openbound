@@ -244,6 +244,7 @@ def main(raw_args=None):
 	highlight_walls       = False
 	selected_terrain_box  = None
 	current_terraintool   = None
+	copied_tileblock      = None
 
 	#
 	#
@@ -660,6 +661,7 @@ def main(raw_args=None):
 
 	# inputs that can be held down across frames
 	shift_pressed      = False
+	control_pressed    = False
 	arrow_left         = False
 	arrow_up           = False
 	arrow_right        = False
@@ -682,6 +684,8 @@ def main(raw_args=None):
 		right_released  = False
 		escape_pressed  = False
 		return_pressed  = False
+		copy_pressed    = False
+		paste_pressed   = False
 		pygame_events   = pygame.event.get()
 		for event in pygame_events:
 			if event.type == pl.QUIT:
@@ -696,12 +700,18 @@ def main(raw_args=None):
 					arrow_right = True
 				if event.key == pl.K_DOWN:
 					arrow_down = True
-				if event.key == pl.K_LSHIFT or event.key == pl.K_RSHIFT:
-					shift_pressed = True
 				if event.key == pl.K_ESCAPE:
 					escape_pressed = True
 				if event.key == pl.K_RETURN:
 					return_pressed = True
+				if event.key == pl.K_LSHIFT or event.key == pl.K_RSHIFT:
+					shift_pressed = True
+				if event.key == pl.K_LCTRL or event.key == pl.K_RCTRL or event.key == pl.K_LMETA or event.key == pl.K_RMETA:
+					control_pressed = True
+				if event.key == pl.K_c and control_pressed:
+					copy_pressed = True
+				if event.key == pl.K_v and control_pressed:
+					paste_pressed = True
 			elif event.type == pl.KEYUP:
 				if event.key == pl.K_LEFT:
 					arrow_left = False
@@ -713,6 +723,8 @@ def main(raw_args=None):
 					arrow_down = False
 				if event.key == pl.K_LSHIFT or event.key == pl.K_RSHIFT:
 					shift_pressed = False
+				if event.key == pl.K_LCTRL or event.key == pl.K_RCTRL or event.key == pl.K_LMETA or event.key == pl.K_RMETA:
+					control_pressed = False
 			elif event.type == pl.MOUSEBUTTONDOWN:
 				if event.button == 1:
 					left_clicking = True
@@ -1143,9 +1155,7 @@ def main(raw_args=None):
 				menu_widgets_2 = [widget_terrainmode_text,
 				                  widget_terrainmode_highlightwalls]
 				#
-				prev_terraintool    = current_terraintool
-				current_terraintool = terraintool_selection_menu.get_selected_content()
-				(tile_k, tile_wall, tile_name, tile_img) = terrain_selection_menu.get_selected_content()
+				prev_terraintool = current_terraintool
 				#
 				mw_output_msgs_2 = {}
 				for mw in menu_widgets_2:
@@ -1161,6 +1171,7 @@ def main(raw_args=None):
 				terraindim_selection_menu.draw(screen)
 				terraintool_selection_menu.draw(screen)
 				widget_terraintool_icons.draw(screen)
+				current_terraintool      = terraintool_selection_menu.get_selected_content()
 				current_terrain_tile_dim = terraindim_selection_menu.get_selected_content()
 				#
 				if arrow_left and not arrow_right:
@@ -1172,8 +1183,12 @@ def main(raw_args=None):
 				elif arrow_down and not arrow_up:
 					terrain_selection_menu.move_down()
 				#
-				terrain_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				new_tile_selected = terrain_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
 				terrain_selection_menu.draw(screen, highlight_walls)
+				(tile_k, tile_wall, tile_name, tile_img) = terrain_selection_menu.get_selected_content()
+				if new_tile_selected:
+					current_terraintool = 'draw'
+					terraintool_selection_menu.index = 0
 				#
 				if selected_terrain_box != None and selected_terrain_box[2]:
 					if terrainbox_blink_ind > 4:
@@ -1189,6 +1204,28 @@ def main(raw_args=None):
 				snap_x = int(mouse_pos_map.x/GRID_SIZE)
 				snap_y = int(mouse_pos_map.y/GRID_SIZE)
 				clear_sel_tb = False
+				#
+				if copy_pressed and selected_terrain_box != None:
+					copied_tilesize = selected_tileblock.shape
+					stb = [[int(selected_terrain_box[0].x) + int(selected_terrain_box[3].x), int(selected_terrain_box[0].y) + int(selected_terrain_box[3].y)],
+					       [int(selected_terrain_box[1].x) + int(selected_terrain_box[3].x), int(selected_terrain_box[1].y) + int(selected_terrain_box[3].y)]]
+					editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]] = selected_tileblock
+				if paste_pressed and copied_tilesize != None:
+					new_pos = (int(-current_window_offset.x/GRID_SIZE + mapobject_limits[0].x/GRID_SIZE + 0.6),
+					           int(-current_window_offset.y/GRID_SIZE + mapobject_limits[0].y/GRID_SIZE + 0.6))
+					# bounds check, trim if we did something pathologically weird
+					dx = editor_tilemap.shape[0] - (new_pos[0]+copied_tilesize[0])
+					dy = editor_tilemap.shape[1] - (new_pos[1]+copied_tilesize[1])
+					if dx < 0:
+						selected_tileblock = selected_tileblock[0:copied_tilesize[0]+dx,:]
+						copied_tilesize = (copied_tilesize[0]+dx, copied_tilesize[1])
+					if dy < 0:
+						selected_tileblock = selected_tileblock[:,0:copied_tilesize[1]+dy]
+						copied_tilesize = (copied_tilesize[0], copied_tilesize[1]+dy)
+					selected_terrain_box = [Vector2(new_pos[0], new_pos[1]), Vector2(new_pos[0]+copied_tilesize[0], new_pos[1]+copied_tilesize[1]), True, Vector2(0,0), Vector2(0,0), False]
+					copied_tilesize = None
+					current_terraintool = 'move'
+					terraintool_selection_menu.index = 2
 				#
 				# draw terrain
 				#
@@ -1216,8 +1253,8 @@ def main(raw_args=None):
 								if selected_terrain_box != None and selected_terrain_box[2]:
 									clear_sel_tb = True
 								else:
-									tl = Vector2(min(selection_box[0].x, selection_box[1].x), min(selection_box[0].y, selection_box[1].y)) - current_window_offset
-									br = Vector2(max(selection_box[0].x, selection_box[1].x), max(selection_box[0].y, selection_box[1].y)) - current_window_offset
+									tl = Vector2(min(selection_box[0].x, selection_box[1].x), min(selection_box[0].y, selection_box[1].y))
+									br = Vector2(max(selection_box[0].x, selection_box[1].x), max(selection_box[0].y, selection_box[1].y))
 									tl = Vector2(int(tl.x/GRID_SIZE), int(tl.y/GRID_SIZE))
 									br = Vector2(int(br.x/GRID_SIZE + 1), int(br.y/GRID_SIZE + 1))
 									selected_terrain_box = [Vector2(tl.x, tl.y), Vector2(br.x, br.y), False, Vector2(0,0), Vector2(0,0), False]
@@ -1251,7 +1288,7 @@ def main(raw_args=None):
 					if (right_clicking or return_pressed) and selected_terrain_box != None:
 						clear_sel_tb = True
 				#
-				if clear_sel_tb:
+				if clear_sel_tb and selected_terrain_box != None:
 					stb = [[int(selected_terrain_box[0].x) + int(selected_terrain_box[3].x), int(selected_terrain_box[0].y) + int(selected_terrain_box[3].y)],
 					       [int(selected_terrain_box[1].x) + int(selected_terrain_box[3].x), int(selected_terrain_box[1].y) + int(selected_terrain_box[3].y)]]
 					editor_tilemap[stb[0][0]:stb[1][0], stb[0][1]:stb[1][1]] = selected_tileblock
@@ -1643,9 +1680,7 @@ def main(raw_args=None):
 				changing_editor_state = True
 			#
 			if changing_editor_state:
-				# do we need to deselect all selected objects?
-				# --- I think the mouse click on the mode button might do this already
-				pass
+				selected_terrain_box = None
 			if previous_editor_state == GameState.EDITOR_SAVE:
 				previous_editor_state = current_gamestate
 
