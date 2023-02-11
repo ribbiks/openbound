@@ -27,7 +27,7 @@ from source.resizablebox     import ResizableBox
 from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
 from source.tilemap          import TileMap
-from source.tile_data        import TileManager
+from source.tilemanager      import TileManager
 from source.uiwidget         import UIWidget
 from source.util             import get_blank_obdata, get_file_paths, read_map_data_from_json, write_map_data_to_json
 from source.worldmap         import WorldMap
