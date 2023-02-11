@@ -187,19 +187,19 @@ class TerrainMenu:
 			self.content.append([])
 			for i,tile_num in enumerate(self.tile_manager.tile_1x1):
 				self.content[-1].append((tile_num, self.tile_manager.is_wall[tile_num[0]], self.tile_manager.tile_img[tile_num[0]]))
-				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
+				if (i+1)%num_cols == 0 and i < len(self.tile_manager.tile_1x1)-1:
 					self.content.append([])
 		elif self.tile_dim == 2 and self.tile_manager.tile_2x2:
 			self.content.append([])
 			for i,tile_num in enumerate(self.tile_manager.tile_2x2):
 				self.content[-1].append((tile_num, self.tile_manager.is_wall_2x2[tile_num[0]], self.tile_manager.tile_img_2x2[tile_num[0]]))
-				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
+				if (i+1)%num_cols == 0 and i < len(self.tile_manager.tile_2x2)-1:
 					self.content.append([])
 		elif self.tile_dim == 4 and self.tile_manager.tile_4x4:
 			self.content.append([])
 			for i,tile_num in enumerate(self.tile_manager.tile_4x4):
 				self.content[-1].append((tile_num, self.tile_manager.is_wall_4x4[tile_num[0]], self.tile_manager.tile_img_4x4[tile_num[0]]))
-				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
+				if (i+1)%num_cols == 0 and i < len(self.tile_manager.tile_4x4)-1:
 					self.content.append([])
 		#
 		self.current_range = (0, min(self.num_rows, len(self.content)))
