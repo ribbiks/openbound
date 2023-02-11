@@ -27,7 +27,7 @@ from source.resizablebox     import ResizableBox
 from source.selectionmenu    import MapMenu, TerrainMenu, UnitMenu
 from source.textinput        import DigitInput, TextInput
 from source.tilemap          import TileMap
-from source.tile_data        import TILE_DATA
+from source.tile_data        import TileManager
 from source.uiwidget         import UIWidget
 from source.util             import get_blank_obdata, get_file_paths, read_map_data_from_json, write_map_data_to_json
 from source.worldmap         import WorldMap
@@ -131,9 +131,6 @@ def main(raw_args=None):
 	#
 	pixel_font_fns = get_file_paths(FONT_DIR, ['small_font.png', 'large_font.png'])
 	#
-	tile_keys = sorted(TILE_DATA.keys())
-	tile_fns  = get_file_paths(TILE_DIR, [TILE_DATA[n][2] for n in tile_keys])
-	#
 	all_map_files  = []
 	map_fn_to_load = None
 	world_map      = None
@@ -201,6 +198,9 @@ def main(raw_args=None):
 	my_audio.add_sound(player_sound_fns[0], 'player_death')
 	my_audio.add_sound(tele_sound_fns[0], 'hallucination')
 
+	# load tiles
+	tile_manager = TileManager(TILE_DIR)
+
 	# load animation gfx
 	my_animations_background = AnimationManager()
 	my_animations_background.add_animation_cycle(playerdeath_bg, 'playerdebris')
@@ -236,8 +236,8 @@ def main(raw_args=None):
 	editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
 	editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
 	editor_prevtilemapdim = editor_tilemap.shape
-	editor_tiledrawer     = TileMap(tile_fns)
-	editor_tiledrawer_sel = TileMap(tile_fns)
+	editor_tiledrawer     = TileMap(tile_manager)
+	editor_tiledrawer_sel = TileMap(tile_manager)
 	editor_obdata         = []
 	editor_currentobnum   = None
 	editor_currentexpnum  = None
@@ -464,7 +464,9 @@ def main(raw_args=None):
 	terraindim_selection_menu = UnitMenu(Vector2(154, 372), ['16x16', '32x32', '64x64'], font_dict['small_w'], num_rows=3, row_height=16, col_width=28, autodeselect=True)
 	#
 	(tl, br) = (Vector2(208, 368), Vector2(432, 464))
-	terrain_selection_menu = TerrainMenu(tl, tile_fns, font_dict['small_w'])
+	terrain_selection_menu_1x1 = TerrainMenu(tl, tile_manager, tile_dim=1)
+	terrain_selection_menu_2x2 = TerrainMenu(tl, tile_manager, tile_dim=2, num_rows=2, num_cols=5, row_height=40, col_width=40)
+	terrain_selection_menu_4x4 = TerrainMenu(tl, tile_manager, tile_dim=4, num_rows=1, num_cols=3, row_height=72, col_width=72)
 	#
 	#
 	#	LOCATIONS MODE WIDGETS
@@ -766,9 +768,10 @@ def main(raw_args=None):
 
 		# Background --------------------------------------------- #
 		screen.fill(Color.BACKGROUND)
-		grid_offset = Vector2(current_window_offset.x % (2*GRID_SIZE), current_window_offset.y % (2*GRID_SIZE))
-		draw_grid(screen, RESOLUTION,   GRID_SIZE, grid_offset, Color.GRID_MINOR)
-		draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
+		if current_gamestate not in [GameState.BOUNDING, GameState.PAUSE_MENU]:
+			grid_offset = Vector2(current_window_offset.x % (2*GRID_SIZE), current_window_offset.y % (2*GRID_SIZE))
+			draw_grid(screen, RESOLUTION,   GRID_SIZE, grid_offset, Color.GRID_MINOR)
+			draw_grid(screen, RESOLUTION, 2*GRID_SIZE, grid_offset, Color.GRID_MAJOR)
 
 		#
 		# STARTING MENU
@@ -1045,7 +1048,9 @@ def main(raw_args=None):
 			#
 			any_selectionmenu_selected = any([terraindim_selection_menu.is_selected,
 				                              terraintool_selection_menu.is_selected,
-			                                  terrain_selection_menu.is_selected,
+			                                  terrain_selection_menu_1x1.is_selected,
+			                                  terrain_selection_menu_2x2.is_selected,
+			                                  terrain_selection_menu_4x4.is_selected,
 			                                  currentob_selection_menu.is_selected,
 			                                  obinfo_move_menu.is_selected,
 			                                  obinfo_life_menu.is_selected,
@@ -1173,19 +1178,31 @@ def main(raw_args=None):
 				widget_terraintool_icons.draw(screen)
 				current_terraintool      = terraintool_selection_menu.get_selected_content()
 				current_terrain_tile_dim = terraindim_selection_menu.get_selected_content()
+				if current_terrain_tile_dim == '16x16':
+					current_terrain_sel_menu = terrain_selection_menu_1x1
+					draw_tilesize = 1
+				elif current_terrain_tile_dim == '32x32':
+					current_terrain_sel_menu = terrain_selection_menu_2x2
+					draw_tilesize = 2
+				elif current_terrain_tile_dim == '64x64':
+					current_terrain_sel_menu = terrain_selection_menu_4x4
+					draw_tilesize = 4
+				else:
+					print('Invalid terrain mode.')
+					exit(1)
 				#
 				if arrow_left and not arrow_right:
-					terrain_selection_menu.move_left()
+					current_terrain_sel_menu.move_left()
 				elif arrow_right and not arrow_left:
-					terrain_selection_menu.move_right()
+					current_terrain_sel_menu.move_right()
 				elif arrow_up and not arrow_down:
-					terrain_selection_menu.move_up()
+					current_terrain_sel_menu.move_up()
 				elif arrow_down and not arrow_up:
-					terrain_selection_menu.move_down()
+					current_terrain_sel_menu.move_down()
+				new_tile_selected = current_terrain_sel_menu.update(mouse_pos_screen, left_clicking, return_pressed)
+				current_terrain_sel_menu.draw(screen, highlight_walls)
+				(tile_num_tuple, tile_wall, tile_img) = current_terrain_sel_menu.get_selected_content()
 				#
-				new_tile_selected = terrain_selection_menu.update(mouse_pos_screen, left_clicking, return_pressed)
-				terrain_selection_menu.draw(screen, highlight_walls)
-				(tile_k, tile_wall, tile_name, tile_img) = terrain_selection_menu.get_selected_content()
 				if new_tile_selected:
 					current_terraintool = 'draw'
 					terraintool_selection_menu.index = 0
@@ -1231,14 +1248,27 @@ def main(raw_args=None):
 				#
 				if current_terraintool == 'draw':
 					if mouse_in_editor_region and snap_x < editor_tilemap.shape[0] and snap_y < editor_tilemap.shape[1]:
-						mouse_tile_highlight = pygame.Surface(Vector2(GRID_SIZE-1, GRID_SIZE-1))
+						new_tile = np.zeros((draw_tilesize,draw_tilesize))
+						del_tile = np.zeros((draw_tilesize,draw_tilesize))
+						for ti,tk in enumerate(tile_num_tuple):
+							new_tile[int(ti/draw_tilesize),ti%draw_tilesize] = tk
+						# bounds check
+						dx = editor_tilemap.shape[0] - (snap_x + new_tile.shape[0])
+						dy = editor_tilemap.shape[1] - (snap_y + new_tile.shape[1])
+						if dx < 0:
+							new_tile = new_tile[:dx,:]
+						if dy < 0:
+							new_tile = new_tile[:,:dy]
+						#
+						mouse_tile_highlight = pygame.Surface(Vector2(new_tile.shape[0]*GRID_SIZE-1, new_tile.shape[1]*GRID_SIZE-1))
 						mouse_tile_highlight.fill(Color.PAL_WHITE)
 						mouse_tile_highlight.set_alpha(40)
 						screen.blit(mouse_tile_highlight, Vector2(snap_x*GRID_SIZE+1, snap_y*GRID_SIZE+1) + current_window_offset, special_flags=pygame.BLEND_ALPHA_SDL2)
+						#
 						if leftclick_is_down:
-							editor_tilemap[snap_x,snap_y] = tile_k
+							editor_tilemap[snap_x:snap_x+new_tile.shape[0],snap_y:snap_y+new_tile.shape[1]] = new_tile
 						elif rightclick_is_down:
-							editor_tilemap[snap_x,snap_y] = 0
+							editor_tilemap[snap_x:snap_x+del_tile.shape[0],snap_y:snap_y+del_tile.shape[1]] = del_tile
 					if selected_terrain_box != None:
 						clear_sel_tb = True
 				#
@@ -1638,7 +1668,7 @@ def main(raw_args=None):
 							                   editor_tilemap,
 							                   editor_obdata)
 							out_json_fn  = os.path.join(MAP_DIR, textinput_mapname.get_value().replace(' ','_') + '.json')
-							save_message = write_map_data_to_json(out_json_fn, all_map_objects)
+							save_message = write_map_data_to_json(out_json_fn, all_map_objects, tile_manager)
 							print(save_message)
 						elif msg == 'return':
 							current_gamestate     = previous_editor_state
@@ -1705,7 +1735,7 @@ def main(raw_args=None):
 					editor_resolution     = Vector2(RESOLUTION.x, RESOLUTION.y-128)
 					editor_tilemap        = np.zeros((int(DEFAULT_MAP_DIM.x), int(DEFAULT_MAP_DIM.y)), dtype='<i4')
 					editor_prevtilemapdim = editor_tilemap.shape
-					editor_tiledrawer     = TileMap(tile_fns)
+					editor_tiledrawer     = TileMap(tile_manager)
 					editor_obdata         = []
 					editor_currentobnum   = None
 					editor_currentexpnum  = None
@@ -1721,7 +1751,9 @@ def main(raw_args=None):
 					draggable_playerstart.center_pos = DEFAULT_PLAYER_START
 					#
 					terraindim_selection_menu.index  = 0
-					terrain_selection_menu.index     = 0
+					terrain_selection_menu_1x1.index = 0
+					terrain_selection_menu_2x2.index = 0
+					terrain_selection_menu_4x4.index = 0
 					terraintool_selection_menu.index = 0
 					selected_terrain_box             = None
 					current_terraintool              = None
@@ -1744,7 +1776,7 @@ def main(raw_args=None):
 						#
 						# load map json and set up world objects
 						#
-						world_map = WorldMap(map_fn_to_load, tile_fns, font_dict)
+						world_map = WorldMap(map_fn_to_load, tile_manager)
 						current_map_bounds = Vector2(world_map.map_width * GRID_SIZE, world_map.map_height * GRID_SIZE)
 						my_player = Mauzling(world_map.start_pos, 0, player_img_fns[0], player_img_fns[2], swap_colors=WHITE_REMAP)
 						my_player.num_lives = world_map.init_lives

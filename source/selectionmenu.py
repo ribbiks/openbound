@@ -6,8 +6,6 @@ from pygame.math import Vector2
 from source.geometry  import point_in_box_excl
 from source.globals   import GRID_SIZE
 from source.misc_gfx  import Color
-from source.tile_data import TILE_DATA
-from source.util      import get_file_paths
 
 #
 # base menu class
@@ -170,42 +168,41 @@ class UnitMenu(SelectionMenu):
 #
 #
 class TerrainMenu:
-	def __init__(self, pos, tilefn_list, font, num_rows=4, num_cols=10, row_height=24, col_width=24, sort_field=None, offset=Vector2(4,4)):
+	def __init__(self, pos, tile_manager, tile_dim=1, num_rows=4, num_cols=10, row_height=24, col_width=24, sort_field=None, offset=Vector2(4,4)):
 		#
-		self.pos           = pos
-		self.font          = font
-		self.index         = 0
-		self.num_rows      = num_rows
-		self.row_height    = row_height
-		self.col_width     = col_width
-		self.current_delay = 0
-		#
-		self.tile_fns = {}
-		for i,my_tile_fn in enumerate(tilefn_list):
-			if my_tile_fn:
-				self.tile_fns[i] = my_tile_fn
-		self.tile_keys = sorted(TILE_DATA.keys())
-		tile_dat = []
-		for k in self.tile_keys:
-			if k in self.tile_fns:
-				tile_dat.append((k, TILE_DATA[k][0], TILE_DATA[k][1], pygame.image.load(self.tile_fns[k]).convert()))
-			else:
-				tile_dat.append((k, TILE_DATA[k][0], TILE_DATA[k][1], None))
-		#
-		self.wall_highlight = pygame.Surface(Vector2(GRID_SIZE, GRID_SIZE))
+		self.pos            = pos
+		self.index          = 0
+		self.num_rows       = num_rows
+		self.row_height     = row_height
+		self.col_width      = col_width
+		self.current_delay  = 0
+		self.tile_dim       = tile_dim
+		self.tile_manager   = tile_manager
+		self.wall_highlight = pygame.Surface(Vector2(self.tile_dim*GRID_SIZE, self.tile_dim*GRID_SIZE))
 		self.wall_highlight.fill(Color.PAL_YEL_2)
 		self.wall_highlight.set_alpha(128)
 		#
 		self.content = []
-		if len(tile_dat):
+		if self.tile_dim == 1 and self.tile_manager.tile_1x1:
 			self.content.append([])
-			for i in range(len(tile_dat)):
-				self.content[-1].append(tile_dat[i])
+			for i,tile_num in enumerate(self.tile_manager.tile_1x1):
+				self.content[-1].append((tile_num, self.tile_manager.is_wall[tile_num[0]], self.tile_manager.tile_img[tile_num[0]]))
+				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
+					self.content.append([])
+		elif self.tile_dim == 2 and self.tile_manager.tile_2x2:
+			self.content.append([])
+			for i,tile_num in enumerate(self.tile_manager.tile_2x2):
+				self.content[-1].append((tile_num, self.tile_manager.is_wall_2x2[tile_num[0]], self.tile_manager.tile_img_2x2[tile_num[0]]))
+				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
+					self.content.append([])
+		elif self.tile_dim == 4 and self.tile_manager.tile_4x4:
+			self.content.append([])
+			for i,tile_num in enumerate(self.tile_manager.tile_4x4):
+				self.content[-1].append((tile_num, self.tile_manager.is_wall_4x4[tile_num[0]], self.tile_manager.tile_img_4x4[tile_num[0]]))
 				if (i+1)%num_cols == 0 and i < len(tile_dat)-1:
 					self.content.append([])
 		#
 		self.current_range = (0, min(self.num_rows, len(self.content)))
-		self.empty_message = 'no tiles found.'
 		self.is_selected   = False
 		self.current_col   = 0
 
@@ -268,10 +265,7 @@ class TerrainMenu:
 		return output_bool
 
 	def draw(self, screen, highlight_walls=False):
-		if not self.content and self.empty_message:
-			offset = Vector2(4,4)
-			self.font.render(screen, self.empty_message, self.pos + offset)
-		else:
+		if self.content:
 			tl = self.pos + Vector2(self.current_col*self.col_width, (self.index - self.current_range[0]) * self.row_height)
 			br = self.pos + Vector2((self.current_col+1)*self.col_width, (self.index - self.current_range[0] + 1) * self.row_height)
 			my_rect = pygame.Rect(tl, br-tl)
@@ -284,11 +278,11 @@ class TerrainMenu:
 				for j in range(len(self.content[i])):
 					offset = Vector2(j*self.col_width + 4, (i - self.current_range[0])*self.row_height + 4)
 					my_pos = self.pos + offset
-					if self.content[i][j][3] != None:
-						screen.blit(self.content[i][j][3], my_pos)
+					if self.content[i][j][2] != None:
+						screen.blit(self.content[i][j][2], my_pos)
 					else:
-						dx = Vector2(GRID_SIZE, 0)
-						dy = Vector2(0, GRID_SIZE)
+						dx = Vector2(self.tile_dim*GRID_SIZE, 0)
+						dy = Vector2(0, self.tile_dim*GRID_SIZE)
 						pygame.draw.line(screen, Color.PAL_BLUE_3,       my_pos,    my_pos+dx, width=1)
 						pygame.draw.line(screen, Color.PAL_BLUE_3,    my_pos+dx, my_pos+dx+dy, width=1)
 						pygame.draw.line(screen, Color.PAL_BLUE_3, my_pos+dx+dy,    my_pos+dy, width=1)

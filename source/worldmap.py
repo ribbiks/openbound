@@ -11,40 +11,31 @@ from source.misc_gfx    import Color, PF_NODE_RADIUS
 from source.obstacle    import Obstacle
 from source.pathfinding import edge_is_collinear, edge_has_good_incoming_angles, edge_is_traversable, edge_never_turns_into_wall
 from source.pathfinding import get_pathfinding_data, UNIT_RADIUS_EPS
-from source.tile_data   import TILE_DATA
 
 class WorldMap:
-	def __init__(self, map_filename, tile_filename_list, font_dict):
+	def __init__(self, map_filename, tile_manager):
 		#
 		# load in basic map data
 		#
 		with open(map_filename,'r') as f:
 			json_dat = json.load(f)
-		self.map_name   = json_dat['map_name']
-		self.map_author = json_dat['map_author']
-		self.map_notes  = json_dat['map_notes']
-		self.difficulty = json_dat['difficulty']
-		self.map_width  = json_dat['map_width']
-		self.map_height = json_dat['map_height']
-		self.init_lives = json_dat['init_lives']
-		self.start_pos  = Vector2(json_dat['start_pos'][0],json_dat['start_pos'][1])
-		self.tile_dat   = np.array(json_dat['tile_dat']).T
-		self.wall_map   = np.zeros((self.map_width, self.map_height))
+		self.map_name     = json_dat['map_name']
+		self.map_author   = json_dat['map_author']
+		self.map_notes    = json_dat['map_notes']
+		self.difficulty   = json_dat['difficulty']
+		self.map_width    = json_dat['map_width']
+		self.map_height   = json_dat['map_height']
+		self.init_lives   = json_dat['init_lives']
+		self.start_pos    = Vector2(json_dat['start_pos'][0],json_dat['start_pos'][1])
+		self.tile_dat     = np.array(json_dat['tile_dat']).T
+		self.wall_map     = np.zeros((self.map_width, self.map_height))
+		self.p_loswidth   = PLAYER_RADIUS - UNIT_RADIUS_EPS
+		self.tile_manager = tile_manager
 		#
 		self.tile_imgs  = {}
 		for i in range(self.tile_dat.shape[0]):
 			for j in range(self.tile_dat.shape[1]):
-				(is_wall, name, image_fn) = TILE_DATA[self.tile_dat[i,j]]
-				self.wall_map[i,j] = is_wall
-				self.tile_imgs[self.tile_dat[i,j]] = None
-		#
-		for k in self.tile_imgs.keys():
-			my_tile_fn = tile_filename_list[k]
-			if my_tile_fn:
-				self.tile_imgs[k] = pygame.image.load(my_tile_fn).convert()
-		self.tid_not_blank = {k:(self.tile_imgs[k] != None) for k in self.tile_imgs.keys()}
-		#
-		self.p_loswidth = PLAYER_RADIUS - UNIT_RADIUS_EPS
+				self.wall_map[i,j] = self.tile_manager.is_wall[self.tile_dat[i,j]]
 
 		#
 		# parse obstacles
@@ -64,8 +55,7 @@ class WorldMap:
 			                                 (Vector2(startbox[0], startbox[1]), Vector2(startbox[2], startbox[3])),
 			                                 (Vector2(endbox[0], endbox[1]), Vector2(endbox[2], endbox[3])),
 			                                 Vector2(revive[0], revive[1]),
-			                                 actions,
-			                                 font_loc=font_dict['small'])
+			                                 actions)
 			for k2 in loc_keys:
 				my_loc_key = k2[4:]
 				my_loc_dat = json_dat[k][k2]
@@ -251,8 +241,8 @@ class WorldMap:
 				for y in range(self.map_height):
 					my_pos = Vector2(x*GRID_SIZE, y*GRID_SIZE)
 					my_tid = self.tile_dat[x,y]
-					if self.tid_not_blank[my_tid]:
-						screen.blit(self.tile_imgs[my_tid], my_pos + offset)
+					if self.tile_manager.tile_img[my_tid] != None:
+						screen.blit(self.tile_manager.tile_img[my_tid], my_pos + offset)
 		#
 		if draw_obs:
 			for k,ob in self.obstacles.items():

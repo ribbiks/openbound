@@ -9,7 +9,6 @@ from source.draggableobject import DraggableObject
 from source.misc_gfx        import Color
 from source.globals         import GRID_SIZE, PLAYER_RADIUS
 from source.resizablebox    import ResizableBox
-from source.tile_data       import TILE_DATA
 
 def exists_and_is_nonzero(fn):
 	if os.path.isfile(fn):
@@ -45,7 +44,7 @@ def get_box_str_from_tlbr(tl, br):
 #
 #
 #
-def write_map_data_to_json(out_fn, all_map_objects):
+def write_map_data_to_json(out_fn, all_map_objects, tile_manager):
 	(textinput_mapname,
 	 textinput_author,
 	 textinput_description,
@@ -64,8 +63,7 @@ def write_map_data_to_json(out_fn, all_map_objects):
 	wall_map = np.zeros((editor_tilemap.shape[0], editor_tilemap.shape[1]))
 	for i in range(editor_tilemap.shape[0]):
 		for j in range(editor_tilemap.shape[1]):
-			(is_wall, name, image_fn) = TILE_DATA[editor_tilemap[i,j]]
-			wall_map[i,j] = is_wall
+			wall_map[i,j] = tile_manager.is_wall[editor_tilemap[i,j]]
 	for i in range(wall_map.shape[0]):
 		wall_map[i,0] = 1
 		wall_map[i,wall_map.shape[1]-1] = 1

@@ -99,9 +99,9 @@ class Mauzling:
 			self.separated_sprites.append([])
 			self.separated_sprites_flipped.append([])
 			for y in range(SPRITE_DIMS[1]):
-				rect  = pygame.Rect([x*SPRITE_SIZE + 1, y*SPRITE_SIZE + 1, SPRITE_SIZE - 2, SPRITE_SIZE - 2])
+				rect = pygame.Rect([x*SPRITE_SIZE + 1, y*SPRITE_SIZE + 1, SPRITE_SIZE - 2, SPRITE_SIZE - 2])
 				self.separated_sprites[-1].append(pygame.Surface(rect.size).convert_alpha())
-				self.separated_sprites[-1][-1].blit(base_img, (0, 0), rect)
+				self.separated_sprites[-1][-1].blit(base_img, (0,0), rect)
 				self.separated_sprites_flipped[-1].append(pygame.transform.flip(self.separated_sprites[-1][-1], True, False))
 	
 	#

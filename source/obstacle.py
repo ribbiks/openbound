@@ -9,7 +9,7 @@ from source.misc_gfx import Color, OB_REVIVE_RADIUS
 # all boxes are defined by a list of Vector2s: [topleft, bottomright]
 
 class Obstacle:
-	def __init__(self, obnum, startbox, endbox, revive, start_actions, font_loc=None):
+	def __init__(self, obnum, startbox, endbox, revive, start_actions):
 		self.obnum         = obnum
 		self.start_box     = startbox
 		self.end_box       = endbox
@@ -20,7 +20,7 @@ class Obstacle:
 		self.event_index   = 0
 		self.is_activated  = False
 		self.was_activated = False
-		self.font_loc      = font_loc
+		self.font_loc      = None	# disabling text drawing for now...
 
 	def check_for_ob_start(self, player_pos):
 		if not self.was_activated and not self.is_activated:
