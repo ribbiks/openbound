@@ -36,9 +36,9 @@ class TileManager:
 				self.tile_img_2x2[current_tile_num] = None
 				self.is_wall_2x2[current_tile_num]  = is_wall
 				self.tile_2x2.append(tuple([current_tile_num]*4))
-				self.tile_img_4x4[current_tile_num] = None
-				self.is_wall_4x4[current_tile_num]  = is_wall
-				self.tile_4x4.append(tuple([current_tile_num]*16))
+				#self.tile_img_4x4[current_tile_num] = None
+				#self.is_wall_4x4[current_tile_num]  = is_wall
+				#self.tile_4x4.append(tuple([current_tile_num]*16))
 				current_tile_num += 1
 			else:
 				tile_fn    = os.path.join(tile_dir, fn)
